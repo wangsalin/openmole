@@ -27,6 +27,7 @@ import {
   StartOrderPaymentDto,
 } from './dto/billing.dto';
 import { BillingService } from './billing.service';
+import { RateLimit } from '../../common/decorators/rate-limit.decorator';
 
 @Controller()
 export class BillingController {
@@ -155,6 +156,7 @@ export class BillingController {
     return this.billing.markTenantOrderPendingPayment(id, body, tenantContext);
   }
 
+  @RateLimit({ name: 'payment.webhook', limit: 120, windowSec: 60 })
   @Post('payment/webhook/:provider')
   paymentWebhook(
     @Param('provider') provider: string,

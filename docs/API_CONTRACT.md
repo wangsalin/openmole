@@ -19,6 +19,30 @@ local development. In shared or production environments, set it to a
 comma-separated allowlist, for example
 `https://admin.example.com,https://tenant.example.com`.
 
+Request body size is controlled by `BODY_LIMIT`, defaulting to `1mb`.
+Oversized or malformed JSON requests return the same stable error envelope.
+
+Baseline security headers are set on API responses:
+
+```text
+x-content-type-options: nosniff
+x-frame-options: DENY
+referrer-policy: no-referrer
+cross-origin-opener-policy: same-origin
+permissions-policy: camera=(), microphone=(), geolocation=()
+```
+
+High-risk public entry points have in-process rate limits:
+
+```text
+POST /auth/login                       10/minute per client
+POST /open/v1/ai/chat                  60/minute per API key or client
+POST /open/v1/ai/generate              60/minute per API key or client
+POST /open/v1/rag/query                60/minute per API key or client
+POST /open/v1/knowledge-bases/:id/query 60/minute per API key or client
+POST /payment/webhook/:provider        120/minute per client
+```
+
 Error responses use a stable shape:
 
 ```json

@@ -1,4 +1,5 @@
 import { Body, Controller, Get, Param, Post, Query, Req, UseGuards } from '@nestjs/common';
+import { RateLimit } from '../../common/decorators/rate-limit.decorator';
 import { CurrentTenantContext } from '../../common/decorators/tenant-context.decorator';
 import { RequirePermissions } from '../../common/decorators/require-permissions.decorator';
 import { PermissionGuard } from '../../common/guards/permission.guard';
@@ -60,11 +61,13 @@ export class KnowledgeController {
     return this.knowledge.enqueueRebuild(knowledgeBaseId, tenantContext);
   }
 
+  @RateLimit({ name: 'open.rag.query', limit: 60, windowSec: 60 })
   @Post('open/v1/rag/query')
   ragQuery(@Body() body: OpenRagQueryDto, @Req() request: AuthenticatedRequest) {
     return this.knowledge.ragQuery(body, request, 'rag:query');
   }
 
+  @RateLimit({ name: 'open.knowledge.query', limit: 60, windowSec: 60 })
   @Post('open/v1/knowledge-bases/:id/query')
   queryBase(
     @Param('id') knowledgeBaseId: string,

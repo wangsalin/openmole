@@ -1,5 +1,6 @@
 import { Body, Controller, Get, Post, Req, UseGuards } from '@nestjs/common';
 import { CurrentUser } from '../../common/decorators/current-user.decorator';
+import { RateLimit } from '../../common/decorators/rate-limit.decorator';
 import {
   AuthenticatedRequest,
   RequestUser,
@@ -13,6 +14,7 @@ import { AuthService } from './auth.service';
 export class AuthController {
   constructor(private readonly authService: AuthService) {}
 
+  @RateLimit({ name: 'auth.login', limit: 10, windowSec: 60 })
   @Post('login')
   login(@Body() dto: LoginDto, @Req() request: AuthenticatedRequest) {
     return this.authService.login(dto, request);

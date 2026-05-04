@@ -1,9 +1,11 @@
 import { BullModule } from '@nestjs/bullmq';
 import { MiddlewareConsumer, Module, NestModule } from '@nestjs/common';
 import { ConfigModule, ConfigService } from '@nestjs/config';
-import { APP_FILTER, APP_INTERCEPTOR } from '@nestjs/core';
+import { APP_FILTER, APP_GUARD, APP_INTERCEPTOR } from '@nestjs/core';
 import { GlobalExceptionFilter } from './common/filters/global-exception.filter';
+import { RateLimitGuard } from './common/guards/rate-limit.guard';
 import { RequestIdMiddleware } from './common/middleware/request-id.middleware';
+import { SecurityHeadersMiddleware } from './common/middleware/security-headers.middleware';
 import { SecurityModule } from './common/security.module';
 import { AuditInterceptor } from './common/interceptors/audit.interceptor';
 import { TenantContextInterceptor } from './common/interceptors/tenant-context.interceptor';
@@ -60,6 +62,10 @@ import { UsageModule } from './modules/usage/usage.module';
       useClass: GlobalExceptionFilter,
     },
     {
+      provide: APP_GUARD,
+      useClass: RateLimitGuard,
+    },
+    {
       provide: APP_INTERCEPTOR,
       useClass: TenantContextInterceptor,
     },
@@ -71,6 +77,6 @@ import { UsageModule } from './modules/usage/usage.module';
 })
 export class AppModule implements NestModule {
   configure(consumer: MiddlewareConsumer) {
-    consumer.apply(RequestIdMiddleware).forRoutes('*');
+    consumer.apply(SecurityHeadersMiddleware, RequestIdMiddleware).forRoutes('*');
   }
 }

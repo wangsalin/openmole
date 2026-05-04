@@ -9,6 +9,7 @@ import {
   UseGuards,
 } from '@nestjs/common';
 import { RequirePermissions } from '../../common/decorators/require-permissions.decorator';
+import { RateLimit } from '../../common/decorators/rate-limit.decorator';
 import { CurrentTenantContext } from '../../common/decorators/tenant-context.decorator';
 import { PermissionGuard } from '../../common/guards/permission.guard';
 import {
@@ -142,11 +143,13 @@ export class AiCenterController {
     return this.ai.callLogs(query, tenantContext);
   }
 
+  @RateLimit({ name: 'open.ai.chat', limit: 60, windowSec: 60 })
   @Post('open/v1/ai/chat')
   chat(@Body() body: OpenAiRequestDto, @Req() request: AuthenticatedRequest) {
     return this.ai.openAiCall('chat', body, request);
   }
 
+  @RateLimit({ name: 'open.ai.generate', limit: 60, windowSec: 60 })
   @Post('open/v1/ai/generate')
   generate(@Body() body: OpenAiRequestDto, @Req() request: AuthenticatedRequest) {
     return this.ai.openAiCall('generate', body, request);

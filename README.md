@@ -104,6 +104,10 @@ error handling and log correlation predictable.
 Set `CORS_ORIGINS` to a comma-separated allowlist before exposing the API to a
 shared environment. Leave it empty for local development.
 
+`BODY_LIMIT` defaults to `1mb`. Login, Open API, RAG, and payment webhook
+endpoints include baseline in-process rate limits, and API responses include
+basic security headers.
+
 Development flow and UI plan:
 
 ```text
