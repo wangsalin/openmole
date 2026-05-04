@@ -37,6 +37,7 @@ export interface AuthenticatedRequest {
   originalUrl?: string;
   url?: string;
   ip?: string;
+  requestId?: string;
   user?: RequestUser;
   body?: unknown;
   params?: Record<string, string>;

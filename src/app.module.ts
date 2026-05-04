@@ -1,7 +1,9 @@
 import { BullModule } from '@nestjs/bullmq';
-import { Module } from '@nestjs/common';
+import { MiddlewareConsumer, Module, NestModule } from '@nestjs/common';
 import { ConfigModule, ConfigService } from '@nestjs/config';
-import { APP_INTERCEPTOR } from '@nestjs/core';
+import { APP_FILTER, APP_INTERCEPTOR } from '@nestjs/core';
+import { GlobalExceptionFilter } from './common/filters/global-exception.filter';
+import { RequestIdMiddleware } from './common/middleware/request-id.middleware';
 import { SecurityModule } from './common/security.module';
 import { AuditInterceptor } from './common/interceptors/audit.interceptor';
 import { TenantContextInterceptor } from './common/interceptors/tenant-context.interceptor';
@@ -12,6 +14,7 @@ import { AuthModule } from './modules/auth/auth.module';
 import { BillingModule } from './modules/billing/billing.module';
 import { DashboardModule } from './modules/dashboard/dashboard.module';
 import { DeveloperModule } from './modules/developer/developer.module';
+import { HealthModule } from './modules/health/health.module';
 import { IdentityModule } from './modules/identity/identity.module';
 import { KnowledgeModule } from './modules/knowledge/knowledge.module';
 import { PermissionModule } from './modules/permission/permission.module';
@@ -45,12 +48,17 @@ import { UsageModule } from './modules/usage/usage.module';
     AiCenterModule,
     KnowledgeModule,
     DeveloperModule,
+    HealthModule,
     TasksModule,
     AuditModule,
     SystemModule,
     DashboardModule,
   ],
   providers: [
+    {
+      provide: APP_FILTER,
+      useClass: GlobalExceptionFilter,
+    },
     {
       provide: APP_INTERCEPTOR,
       useClass: TenantContextInterceptor,
@@ -61,4 +69,8 @@ import { UsageModule } from './modules/usage/usage.module';
     },
   ],
 })
-export class AppModule {}
+export class AppModule implements NestModule {
+  configure(consumer: MiddlewareConsumer) {
+    consumer.apply(RequestIdMiddleware).forRoutes('*');
+  }
+}

@@ -8,7 +8,20 @@ async function bootstrap() {
   const app = await NestFactory.create(AppModule);
   const config = app.get(ConfigService);
 
-  app.enableCors();
+  app.getHttpAdapter().getInstance().disable('x-powered-by');
+  const corsOrigins = config
+    .get<string>('CORS_ORIGINS')
+    ?.split(',')
+    .map((origin) => origin.trim())
+    .filter(Boolean);
+  app.enableCors(
+    corsOrigins?.length
+      ? {
+          origin: corsOrigins,
+          credentials: true,
+        }
+      : undefined,
+  );
   app.useGlobalPipes(
     new ValidationPipe({
       whitelist: true,
@@ -18,9 +31,9 @@ async function bootstrap() {
   );
 
   const documentConfig = new DocumentBuilder()
-    .setTitle('AI SaaS Admin Backend')
+    .setTitle('OpenMole Backend')
     .setDescription('Multi-tenant AI SaaS admin and runtime backend API')
-    .setVersion('0.1.0')
+    .setVersion('0.1.0-alpha.0')
     .addBearerAuth()
     .build();
   const document = SwaggerModule.createDocument(app, documentConfig);

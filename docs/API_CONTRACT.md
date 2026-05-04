@@ -1,5 +1,38 @@
 # API Contract Draft
 
+## Platform
+
+```text
+GET /health
+```
+
+`GET /health` returns dependency health for PostgreSQL, Redis, and MinIO. It
+returns `200` when all checks are healthy and `503` when any dependency is
+degraded.
+
+Every HTTP response includes `x-request-id`. Clients can also pass
+`x-request-id` or `x-correlation-id`; the backend will echo it as
+`x-request-id`.
+
+Cross-origin requests are controlled by `CORS_ORIGINS`. Leave it empty for
+local development. In shared or production environments, set it to a
+comma-separated allowlist, for example
+`https://admin.example.com,https://tenant.example.com`.
+
+Error responses use a stable shape:
+
+```json
+{
+  "requestId": "uuid",
+  "code": "VALIDATION_FAILED",
+  "message": "Validation failed",
+  "details": ["field must be a string"],
+  "statusCode": 400,
+  "timestamp": "2026-05-04T00:00:00.000Z",
+  "path": "/admin/v1/example"
+}
+```
+
 ## Auth
 
 ```text

@@ -53,6 +53,10 @@
 
 目标：让后端和未来前端都有稳定开发基线。
 
+当前进度：已完成 `GET /health`、全局 `x-request-id`、统一错误响应结构、
+Swagger 品牌信息、`x-powered-by` 隐藏，以及 `CORS_ORIGINS` 白名单配置。剩余
+P0 工作集中在限流、helmet/body size limit、结构化日志与更多 contract tests。
+
 后端任务：
 - 增加 `GET /health`，检查 Postgres、Redis、队列、MinIO。
 - 增加统一错误码结构：`code/message/details/requestId`。

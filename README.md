@@ -91,6 +91,19 @@ API docs are exposed at:
 http://localhost:3000/docs
 ```
 
+Health check:
+
+```text
+GET http://localhost:3000/health
+```
+
+Every response includes `x-request-id`. Error responses use the stable shape
+`requestId/code/message/details/statusCode/timestamp/path`, which makes UI
+error handling and log correlation predictable.
+
+Set `CORS_ORIGINS` to a comma-separated allowlist before exposing the API to a
+shared environment. Leave it empty for local development.
+
 Development flow and UI plan:
 
 ```text
