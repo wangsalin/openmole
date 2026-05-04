@@ -1,9 +1,12 @@
-# AI SaaS Admin Backend
+# OpenMole
 
-AI SaaS Admin is intended to be an open-source backend foundation for
-multi-tenant AI SaaS platforms. It provides reusable backend capabilities for
-auth, RBAC, tenant isolation, billing, AI gateway, PromptOps, RAG, API keys,
-webhooks, usage tracking, and audit logs.
+OpenMole is an open-source backend foundation for multi-tenant AI SaaS
+platforms. It provides reusable backend capabilities for auth, RBAC, tenant
+isolation, billing, AI gateway, PromptOps, RAG, API keys, webhooks, usage
+tracking, and audit logs.
+
+> Status: alpha. The core backend loops are usable for development and
+> evaluation, but production hardening is still in progress.
 
 Project overview:
 
@@ -13,6 +16,33 @@ docs/PROJECT_OVERVIEW.md
 
 This repository is the backend implementation starter for the document
 `通用型AI_SaaS管理端后端落地方案.md`.
+
+## What It Is
+
+OpenMole is not a generic admin template. It is a modular monolith backend for
+building SaaS control planes and AI runtime gateways:
+
+- Control plane: apps, tenants, users, roles, permissions, plans, AI routes,
+  prompts, knowledge bases, settings, and audit logs.
+- Runtime plane: Open API authentication, AI calls, RAG queries, quota checks,
+  usage ledgers, and webhook delivery.
+- Data plane: subscriptions, orders, payment transactions, AI call logs,
+  knowledge chunks, vector search, tasks, and audit history.
+
+## Key Features
+
+- Multi-tenant app and tenant context.
+- JWT auth, context switching, menu loading, RBAC permissions.
+- Tenant-scoped data isolation for reads and writes.
+- Apps, tenants, users, roles, permissions, settings, tasks, and audit logs.
+- Billing primitives: features, plans, plan entitlements, orders,
+  subscriptions, payment webhook verification, and quota buckets.
+- Usage and entitlement checks for metered features.
+- AI provider/model/route management with OpenAI-compatible calls.
+- Prompt versioning, publishing, variable rendering, and runtime injection.
+- Knowledge bases, PDF/DOCX parsing, pgvector indexing, and RAG query APIs.
+- Developer API keys, scopes, signed webhooks, delivery logs, and retry.
+- E2E scripts for payment/subscription and knowledge/RAG flows.
 
 ## Stack
 

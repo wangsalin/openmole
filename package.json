@@ -1,8 +1,17 @@
 {
-  "name": "ai-saas-admin-backend",
-  "version": "0.1.0",
-  "private": true,
-  "description": "Modular monolith backend for a multi-tenant AI SaaS admin platform.",
+  "name": "openmole",
+  "version": "0.1.0-alpha.0",
+  "private": false,
+  "description": "Open-source backend foundation for multi-tenant AI SaaS platforms.",
+  "license": "MIT",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/wangsalin/openmole.git"
+  },
+  "bugs": {
+    "url": "https://github.com/wangsalin/openmole/issues"
+  },
+  "homepage": "https://github.com/wangsalin/openmole#readme",
   "scripts": {
     "build": "nest build",
     "start": "nest start",
