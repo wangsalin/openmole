@@ -63,7 +63,10 @@ const columnLabels: Record<string, string> = {
   appKey: '应用标识',
   tenantKey: '租户标识',
   email: '邮箱',
+  phone: '手机号',
   displayName: '显示名',
+  avatarUrl: '头像',
+  lastLoginAt: '最后登录',
   status: '状态',
   createdAt: '创建时间',
   updatedAt: '更新时间',
@@ -222,6 +225,48 @@ const resourceConfigs: Record<string, ResourceConfig> = {
         label: '禁用',
         tone: 'danger',
         run: (row, context) => runResourceAction(`/admin/v1/tenants/${String(row.id)}/disable`, context),
+      },
+    ],
+  },
+  '/admin/v1/users': {
+    endpoint: '/admin/v1/users',
+    columns: ['email', 'displayName', 'phone', 'status', 'lastLoginAt', 'createdAt'],
+    filters: [
+      { key: 'q', label: '搜索', placeholder: '邮箱 / 姓名 / 手机号' },
+      { key: 'status', label: '状态', type: 'select', options: statusOptions },
+    ],
+    createTitle: '新建用户',
+    editTitle: '编辑用户',
+    fields: [
+      { key: 'email', label: '邮箱', required: true },
+      { key: 'phone', label: '手机号' },
+      { key: 'displayName', label: '显示名' },
+      { key: 'password', label: '密码', type: 'password', placeholder: '编辑时留空则不修改' },
+      { key: 'avatarUrl', label: '头像 URL' },
+      { key: 'status', label: '状态', type: 'select', options: statusOptions },
+    ],
+    transform(values, mode) {
+      return {
+        email: values.email || undefined,
+        phone: values.phone || undefined,
+        displayName: values.displayName || undefined,
+        password: mode === 'create' || values.password ? values.password || undefined : undefined,
+        avatarUrl: values.avatarUrl || undefined,
+        status: values.status || undefined,
+      };
+    },
+    actions: [
+      {
+        label: '禁用',
+        tone: 'danger',
+        run: (row, context) =>
+          updateResource(`/admin/v1/users/${String(row.id)}`, { status: 'disabled' }, context),
+      },
+      {
+        label: '启用',
+        tone: 'primary',
+        run: (row, context) =>
+          updateResource(`/admin/v1/users/${String(row.id)}`, { status: 'active' }, context),
       },
     ],
   },

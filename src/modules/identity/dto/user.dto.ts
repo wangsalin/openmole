@@ -4,6 +4,10 @@ import { PaginationDto } from '../../../common/dto/pagination.dto';
 
 export class ListUsersDto extends PaginationDto {
   @IsOptional()
+  @IsString()
+  q?: string;
+
+  @IsOptional()
   @IsEmail()
   email?: string;
 

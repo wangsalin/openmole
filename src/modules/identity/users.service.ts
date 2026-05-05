@@ -17,6 +17,13 @@ export class UsersService {
         id: scopedUserIds ? { in: scopedUserIds } : undefined,
         status: query.status,
         email: query.email,
+        OR: query.q
+          ? [
+              { email: { contains: query.q, mode: 'insensitive' } },
+              { displayName: { contains: query.q, mode: 'insensitive' } },
+              { phone: { contains: query.q, mode: 'insensitive' } },
+            ]
+          : undefined,
       }),
       skip,
       take,
