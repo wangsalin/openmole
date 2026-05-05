@@ -14,6 +14,12 @@ Every HTTP response includes `x-request-id`. Clients can also pass
 `x-request-id` or `x-correlation-id`; the backend will echo it as
 `x-request-id`.
 
+HTTP access logs are emitted as single-line JSON records with `requestId`,
+`method`, `path`, `statusCode`, `durationMs`, `userId`, `appId`, and
+`tenantId`. Mutation audit logs and auth/security audit events include the same
+`requestId` in their JSON metadata so operators can correlate API responses,
+logs, and audit records.
+
 Cross-origin requests are controlled by `CORS_ORIGINS`. Leave it empty for
 local development. In shared or production environments, set it to a
 comma-separated allowlist, for example
@@ -65,6 +71,8 @@ GET  /auth/me
 GET  /auth/contexts
 GET  /auth/menus
 POST /auth/switch-context
+POST /auth/logout
+POST /auth/change-password
 ```
 
 ## Admin API

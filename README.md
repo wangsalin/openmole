@@ -66,6 +66,16 @@ npm run test:payment
 npm run start:dev
 ```
 
+Admin web:
+
+```bash
+npm install
+npm run admin:dev
+```
+
+The admin console is located in `apps/admin-web`. By default Vite proxies API
+requests to `http://localhost:3000`.
+
 If Windows blocks npm cache or dependency scripts, use:
 
 ```bash
@@ -101,6 +111,10 @@ Every response includes `x-request-id`. Error responses use the stable shape
 `requestId/code/message/details/statusCode/timestamp/path`, which makes UI
 error handling and log correlation predictable.
 
+HTTP access logs are emitted as single-line JSON and audit events include the
+same `requestId` in metadata, so an API response can be traced through logs and
+audit history.
+
 Set `CORS_ORIGINS` to a comma-separated allowlist before exposing the API to a
 shared environment. Leave it empty for local development.
 
@@ -126,6 +140,19 @@ ChangeMe123!
 ```
 
 Change these values in `.env` before running seed in a shared environment.
+
+Auth endpoints include login, current user, context/menu loading, context
+switching, logout, and password change:
+
+```text
+POST /auth/login
+GET  /auth/me
+GET  /auth/contexts
+GET  /auth/menus
+POST /auth/switch-context
+POST /auth/logout
+POST /auth/change-password
+```
 
 Useful first checks:
 

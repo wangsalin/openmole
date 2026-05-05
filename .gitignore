@@ -11,5 +11,8 @@ yarn-debug.log*
 yarn-error.log*
 pnpm-debug.log*
 *.log
+*.tsbuildinfo
+vite.config.js
+vite.config.d.ts
 .idea
 .vscode

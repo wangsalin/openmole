@@ -57,7 +57,10 @@ export class AuditInterceptor implements NestInterceptor {
           resourceId: request.params?.id,
           ip: request.ip,
           userAgent: request.get?.('user-agent'),
-          after: this.toJson(response),
+          after: this.toJson({
+            requestId: request.requestId,
+            response,
+          }),
         },
       });
     } catch {

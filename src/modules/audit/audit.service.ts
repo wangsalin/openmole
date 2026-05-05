@@ -42,6 +42,7 @@ export class AuditService {
     tenantId?: string | null;
     ip?: string;
     userAgent?: string;
+    requestId?: string;
     after?: Record<string, unknown>;
   }) {
     return this.prisma.auditLog.create({
@@ -53,7 +54,10 @@ export class AuditService {
         tenantId: data.tenantId,
         ip: data.ip,
         userAgent: data.userAgent,
-        after: data.after as never,
+        after: omitUndefined({
+          requestId: data.requestId,
+          ...data.after,
+        }) as never,
       },
     });
   }

@@ -99,6 +99,7 @@ export class PermissionGuard implements CanActivate {
         tenantId: request.tenantContext?.tenantId,
         ip: request.ip,
         userAgent: request.get?.('user-agent'),
+        requestId: request.requestId,
         after: {
           reason,
           required,

@@ -13,6 +13,7 @@ import {
 } from '../../common/types/authenticated-request';
 import { AuditService } from '../audit/audit.service';
 import { PrismaService } from '../prisma/prisma.service';
+import { ChangePasswordDto } from './dto/change-password.dto';
 import { LoginDto } from './dto/login.dto';
 import { SwitchContextDto } from './dto/switch-context.dto';
 
@@ -128,6 +129,71 @@ export class AuthService {
     }
 
     return this.buildMenuTree(menus);
+  }
+
+  async logout(user: RequestUser, request?: AuthenticatedRequest) {
+    await this.writeAuthEvent('auth.logout.succeeded', request, {
+      userId: user.sub,
+      email: user.email,
+      appId: user.activeContext?.appId,
+      tenantId: user.activeContext?.tenantId,
+    });
+    return { ok: true };
+  }
+
+  async changePassword(
+    user: RequestUser,
+    dto: ChangePasswordDto,
+    request?: AuthenticatedRequest,
+  ) {
+    if (dto.currentPassword === dto.newPassword) {
+      await this.writeAuthEvent('auth.change_password.failed', request, {
+        userId: user.sub,
+        email: user.email,
+        appId: user.activeContext?.appId,
+        tenantId: user.activeContext?.tenantId,
+        reason: 'same_password',
+      });
+      throw new BadRequestException('New password must be different');
+    }
+
+    const record = await this.prisma.user.findUnique({
+      where: { id: user.sub },
+    });
+    if (!record || record.status !== 'active') {
+      await this.writeAuthEvent('auth.change_password.failed', request, {
+        userId: user.sub,
+        email: user.email,
+        appId: user.activeContext?.appId,
+        tenantId: user.activeContext?.tenantId,
+        reason: 'user_not_found_or_inactive',
+      });
+      throw new UnauthorizedException('Invalid user');
+    }
+
+    const valid = await bcrypt.compare(dto.currentPassword, record.passwordHash);
+    if (!valid) {
+      await this.writeAuthEvent('auth.change_password.failed', request, {
+        userId: user.sub,
+        email: user.email,
+        appId: user.activeContext?.appId,
+        tenantId: user.activeContext?.tenantId,
+        reason: 'invalid_current_password',
+      });
+      throw new UnauthorizedException('Invalid current password');
+    }
+
+    await this.prisma.user.update({
+      where: { id: user.sub },
+      data: { passwordHash: await bcrypt.hash(dto.newPassword, 10) },
+    });
+    await this.writeAuthEvent('auth.change_password.succeeded', request, {
+      userId: user.sub,
+      email: user.email,
+      appId: user.activeContext?.appId,
+      tenantId: user.activeContext?.tenantId,
+    });
+    return { ok: true };
   }
 
   async switchContext(
@@ -272,6 +338,7 @@ export class AuthService {
       tenantId: detail.tenantId,
       ip: request?.ip,
       userAgent: request?.get?.('user-agent'),
+      requestId: request?.requestId,
       after: {
         email: detail.email,
         reason: detail.reason,

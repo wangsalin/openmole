@@ -6,6 +6,7 @@ import {
   RequestUser,
 } from '../../common/types/authenticated-request';
 import { LoginDto } from './dto/login.dto';
+import { ChangePasswordDto } from './dto/change-password.dto';
 import { SwitchContextDto } from './dto/switch-context.dto';
 import { JwtAuthGuard } from './jwt-auth.guard';
 import { AuthService } from './auth.service';
@@ -46,5 +47,24 @@ export class AuthController {
     @Req() request: AuthenticatedRequest,
   ) {
     return this.authService.switchContext(user, dto, request);
+  }
+
+  @Post('logout')
+  @UseGuards(JwtAuthGuard)
+  logout(
+    @CurrentUser() user: RequestUser,
+    @Req() request: AuthenticatedRequest,
+  ) {
+    return this.authService.logout(user, request);
+  }
+
+  @Post('change-password')
+  @UseGuards(JwtAuthGuard)
+  changePassword(
+    @CurrentUser() user: RequestUser,
+    @Body() dto: ChangePasswordDto,
+    @Req() request: AuthenticatedRequest,
+  ) {
+    return this.authService.changePassword(user, dto, request);
   }
 }

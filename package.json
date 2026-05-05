@@ -12,6 +12,9 @@
     "url": "https://github.com/wangsalin/openmole/issues"
   },
   "homepage": "https://github.com/wangsalin/openmole#readme",
+  "workspaces": [
+    "apps/*"
+  ],
   "scripts": {
     "build": "nest build",
     "start": "nest start",
@@ -26,7 +29,10 @@
     "prisma:seed": "tsx prisma/seed.ts",
     "prisma:seed:ai": "tsx prisma/seed-ai-providers.ts",
     "docker:up": "docker compose up -d",
-    "docker:down": "docker compose down"
+    "docker:down": "docker compose down",
+    "admin:dev": "npm run dev -w apps/admin-web",
+    "admin:build": "npm run build -w apps/admin-web",
+    "admin:preview": "npm run preview -w apps/admin-web"
   },
   "dependencies": {
     "@nestjs/bullmq": "^11.0.3",

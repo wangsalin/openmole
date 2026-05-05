@@ -54,10 +54,11 @@
 目标：让后端和未来前端都有稳定开发基线。
 
 当前进度：已完成 `GET /health`、全局 `x-request-id`、统一错误响应结构、
-Swagger 品牌信息、`x-powered-by` 隐藏、`CORS_ORIGINS` 白名单配置、`BODY_LIMIT`
-请求体限制、基础安全响应头，以及登录/Open API/RAG/支付 webhook 的 in-process
-限流。剩余 P0 工作集中在结构化日志、Redis-backed 分布式限流、helmet/CSP 细化与更多
-contract tests。
+Swagger 品牌信息、结构化 HTTP access log、审计 requestId 关联、`x-powered-by`
+隐藏、`CORS_ORIGINS` 白名单配置、`BODY_LIMIT` 请求体限制、基础安全响应头，以及登录
+/Open API/RAG/支付 webhook 的 in-process 限流。Auth 已补 `logout` 和
+`change-password`。管理端 `apps/admin-web` 已创建基础壳。剩余 P0 工作集中在 Redis-backed
+分布式限流、helmet/CSP 细化与更多 contract tests。
 
 后端任务：
 - 增加 `GET /health`，检查 Postgres、Redis、队列、MinIO。
@@ -68,7 +69,7 @@ contract tests。
 - 增加 `.env.example` 分组注释和生产必填说明。
 
 前端任务：
-- 创建管理端工程，建议 `apps/admin-web`。
+- 创建管理端工程，建议 `apps/admin-web`。已创建。
 - 技术栈建议：React + Vite + TypeScript + TanStack Query + React Router + Tailwind CSS + shadcn/ui + lucide-react。
 - 建立 API client：统一 token、错误处理、分页、空状态、权限判断。
 
@@ -85,8 +86,8 @@ contract tests。
 
 后端补齐：
 - `GET /auth/me` 返回更适合 UI 的用户摘要、activeContext、roles、permissions。
-- `POST /auth/logout`。
-- `POST /auth/change-password`。
+- `POST /auth/logout`。已完成。
+- `POST /auth/change-password`。已完成。
 - 可选：refresh token 和 token rotate。
 
 UI 页面：

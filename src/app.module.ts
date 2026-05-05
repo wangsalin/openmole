@@ -4,6 +4,7 @@ import { ConfigModule, ConfigService } from '@nestjs/config';
 import { APP_FILTER, APP_GUARD, APP_INTERCEPTOR } from '@nestjs/core';
 import { GlobalExceptionFilter } from './common/filters/global-exception.filter';
 import { RateLimitGuard } from './common/guards/rate-limit.guard';
+import { HttpLoggingInterceptor } from './common/interceptors/http-logging.interceptor';
 import { RequestIdMiddleware } from './common/middleware/request-id.middleware';
 import { SecurityHeadersMiddleware } from './common/middleware/security-headers.middleware';
 import { SecurityModule } from './common/security.module';
@@ -64,6 +65,10 @@ import { UsageModule } from './modules/usage/usage.module';
     {
       provide: APP_GUARD,
       useClass: RateLimitGuard,
+    },
+    {
+      provide: APP_INTERCEPTOR,
+      useClass: HttpLoggingInterceptor,
     },
     {
       provide: APP_INTERCEPTOR,
