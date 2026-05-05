@@ -13,7 +13,7 @@ export class ApiError extends Error {
   body?: ApiErrorBody;
 
   constructor(status: number, body?: ApiErrorBody) {
-    super(body?.message ?? `Request failed with ${status}`);
+    super(body?.message ?? `请求失败，状态码 ${status}`);
     this.status = status;
     this.body = body;
   }

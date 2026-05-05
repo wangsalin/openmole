@@ -24,17 +24,56 @@ import { useAuth } from './AuthContext';
 import { ContextOption } from './types';
 
 const navItems = [
-  { path: '/', label: 'Overview', icon: LayoutDashboard },
-  { path: '/apps', label: 'Apps', icon: AppWindow, endpoint: '/admin/v1/apps' },
-  { path: '/tenants', label: 'Tenants', icon: Building2, endpoint: '/admin/v1/tenants' },
-  { path: '/users', label: 'Users', icon: Users, endpoint: '/admin/v1/users' },
-  { path: '/billing', label: 'Billing', icon: CreditCard, endpoint: '/admin/v1/plans' },
-  { path: '/ai', label: 'AI Center', icon: BrainCircuit, endpoint: '/admin/v1/ai/providers' },
-  { path: '/knowledge', label: 'Knowledge', icon: Database, endpoint: '/admin/v1/knowledge-bases' },
-  { path: '/developer', label: 'Developer', icon: KeyRound, endpoint: '/admin/v1/developer/api-keys' },
-  { path: '/audit', label: 'Audit', icon: ScrollText, endpoint: '/admin/v1/audit-logs' },
-  { path: '/system', label: 'System', icon: Settings, endpoint: '/admin/v1/system/settings' },
+  { path: '/', label: '总览', icon: LayoutDashboard },
+  { path: '/apps', label: '应用管理', icon: AppWindow, endpoint: '/admin/v1/apps' },
+  { path: '/tenants', label: '租户管理', icon: Building2, endpoint: '/admin/v1/tenants' },
+  { path: '/users', label: '用户管理', icon: Users, endpoint: '/admin/v1/users' },
+  { path: '/billing', label: '计费套餐', icon: CreditCard, endpoint: '/admin/v1/plans' },
+  { path: '/ai', label: 'AI 中心', icon: BrainCircuit, endpoint: '/admin/v1/ai/providers' },
+  { path: '/knowledge', label: '知识库', icon: Database, endpoint: '/admin/v1/knowledge-bases' },
+  { path: '/developer', label: '开发者中心', icon: KeyRound, endpoint: '/admin/v1/developer/api-keys' },
+  { path: '/audit', label: '审计日志', icon: ScrollText, endpoint: '/admin/v1/audit-logs' },
+  { path: '/system', label: '系统设置', icon: Settings, endpoint: '/admin/v1/system/settings' },
 ];
+
+const metricLabels: Record<string, string> = {
+  apps: '应用',
+  tenants: '租户',
+  users: '用户',
+  orders: '订单',
+  subscriptions: '订阅',
+  apiKeys: 'API 密钥',
+  knowledgeBases: '知识库',
+};
+
+const columnLabels: Record<string, string> = {
+  id: 'ID',
+  name: '名称',
+  appKey: '应用标识',
+  tenantKey: '租户标识',
+  email: '邮箱',
+  displayName: '显示名',
+  status: '状态',
+  createdAt: '创建时间',
+  updatedAt: '更新时间',
+  appId: '应用 ID',
+  tenantId: '租户 ID',
+  userId: '用户 ID',
+  roleKey: '角色标识',
+  provider: '提供商',
+  title: '标题',
+  action: '操作',
+  resource: '资源',
+};
+
+const errorMessages: Record<string, string> = {
+  UNAUTHORIZED: '账号或密码不正确',
+  INVALID_REQUEST_BODY: '请求内容格式不正确',
+  VALIDATION_FAILED: '表单校验失败，请检查输入内容',
+  RATE_LIMITED: '请求过于频繁，请稍后再试',
+  NETWORK_ERROR: '无法连接后端服务',
+  NOT_FOUND: '接口或资源不存在',
+};
 
 export function App() {
   const auth = useAuth();
@@ -59,7 +98,7 @@ function LoginView() {
       auth.signIn(session);
       navigate('/');
     } catch (err) {
-      setError(err instanceof ApiError ? `${err.body?.code ?? err.status}: ${err.message}` : 'Login failed');
+      setError(formatError(err));
     } finally {
       setLoading(false);
     }
@@ -72,16 +111,16 @@ function LoginView() {
           <span className="brand-mark">OM</span>
           <div>
             <h1>OpenMole</h1>
-            <p>Admin Console</p>
+            <p>管理控制台</p>
           </div>
         </div>
         <form className="login-form" onSubmit={onSubmit}>
           <label>
-            Email
+            邮箱
             <input value={email} onChange={(event) => setEmail(event.target.value)} autoComplete="email" />
           </label>
           <label>
-            Password
+            密码
             <input
               value={password}
               onChange={(event) => setPassword(event.target.value)}
@@ -92,7 +131,7 @@ function LoginView() {
           {error ? <p className="form-error">{error}</p> : null}
           <button type="submit" className="primary-button" disabled={loading}>
             <Shield size={18} />
-            {loading ? 'Signing in' : 'Sign in'}
+            {loading ? '正在登录' : '登录'}
           </button>
         </form>
       </section>
@@ -119,7 +158,7 @@ function AdminShell() {
           <span className="brand-mark">OM</span>
           <div>
             <strong>OpenMole</strong>
-            <span>Control Plane</span>
+            <span>控制平面</span>
           </div>
         </div>
         <nav className="nav-list">
@@ -136,21 +175,21 @@ function AdminShell() {
       </aside>
       <div className="main-column">
         <header className="topbar">
-          <button className="icon-button" title="Navigation">
+          <button className="icon-button" title="导航">
             <Menu size={18} />
           </button>
           <div className="search-box">
             <Search size={17} />
-            <input placeholder="Search records" />
+            <input placeholder="搜索记录" />
           </div>
           <ContextSelect
             contexts={contexts.data ?? []}
             onChange={(context) => auth.setActiveContext(context)}
           />
           <div className="user-chip">
-            <span>{auth.user?.displayName ?? auth.user?.email ?? 'Admin'}</span>
+            <span>{auth.user?.displayName ?? auth.user?.email ?? '管理员'}</span>
           </div>
-          <button className="icon-button" onClick={onLogout} title="Logout">
+          <button className="icon-button" onClick={onLogout} title="退出登录">
             <LogOut size={18} />
           </button>
         </header>
@@ -194,11 +233,11 @@ function ContextSelect({
       {contexts.length ? (
         contexts.map((context, index) => (
           <option key={`${context.membership.appId}:${context.membership.tenantId ?? 'platform'}`} value={index}>
-            {context.app?.name ?? context.membership.appId} / {context.tenant?.name ?? 'Platform'}
+            {context.app?.name ?? context.membership.appId} / {context.tenant?.name ?? '平台'}
           </option>
         ))
       ) : (
-        <option>Context</option>
+        <option>上下文</option>
       )}
     </select>
   );
@@ -213,25 +252,25 @@ function Overview() {
   const metrics = useMemo(() => Object.entries(summary.data ?? {}), [summary.data]);
 
   return (
-    <Page title="Overview" right={<span className="status-pill">Alpha</span>}>
+    <Page title="总览" right={<span className="status-pill">Alpha</span>}>
       <div className="metric-grid">
         {(metrics.length ? metrics : [['apps', 0], ['tenants', 0], ['users', 0], ['orders', 0]]).map(([key, value]) => (
           <section className="metric-tile" key={key}>
-            <span>{key}</span>
+            <span>{metricLabels[key] ?? key}</span>
             <strong>{String(value)}</strong>
           </section>
         ))}
       </div>
       <section className="panel">
         <div className="panel-heading">
-          <h2>Runtime</h2>
+          <h2>运行状态</h2>
           <Activity size={18} />
         </div>
         <div className="runtime-grid">
-          <RuntimeItem label="Auth" value="JWT + RBAC" />
-          <RuntimeItem label="Tenant" value="Header + session context" />
-          <RuntimeItem label="AI" value="OpenAI-compatible gateway" />
-          <RuntimeItem label="RAG" value="pgvector + object storage" />
+          <RuntimeItem label="认证" value="JWT + RBAC" />
+          <RuntimeItem label="租户" value="请求头 + 会话上下文" />
+          <RuntimeItem label="AI" value="OpenAI 兼容网关" />
+          <RuntimeItem label="知识检索" value="pgvector + 对象存储" />
         </div>
       </section>
     </Page>
@@ -246,7 +285,7 @@ function ResourcePage({ title, endpoint }: { title: string; endpoint: string }) 
   });
 
   return (
-    <Page title={title} right={<button className="secondary-button">New</button>}>
+    <Page title={title} right={<button className="secondary-button">新建</button>}>
       <section className="panel">
         {query.error ? <ErrorBanner error={query.error} /> : null}
         <DataTable rows={query.data ?? []} loading={query.isLoading} />
@@ -261,7 +300,7 @@ function Page({ title, right, children }: { title: string; right?: ReactNode; ch
       <div className="page-header">
         <div>
           <h1>{title}</h1>
-          <p>OpenMole Admin</p>
+          <p>OpenMole 管理控制台</p>
         </div>
         {right}
       </div>
@@ -277,8 +316,8 @@ function DataTable({ rows, loading }: { rows: Record<string, unknown>[]; loading
     return [...keys];
   }, [rows]);
 
-  if (loading) return <div className="empty-state">Loading</div>;
-  if (!rows.length) return <div className="empty-state">No records</div>;
+  if (loading) return <div className="empty-state">加载中</div>;
+  if (!rows.length) return <div className="empty-state">暂无数据</div>;
 
   return (
     <div className="table-wrap">
@@ -286,7 +325,7 @@ function DataTable({ rows, loading }: { rows: Record<string, unknown>[]; loading
         <thead>
           <tr>
             {columns.map((column) => (
-              <th key={column}>{column}</th>
+              <th key={column}>{columnLabels[column] ?? column}</th>
             ))}
           </tr>
         </thead>
@@ -315,8 +354,14 @@ function RuntimeItem({ label, value }: { label: string; value: string }) {
 }
 
 function ErrorBanner({ error }: { error: unknown }) {
-  const message = error instanceof ApiError ? `${error.body?.code ?? error.status}: ${error.message}` : 'Request failed';
-  return <div className="error-banner">{message}</div>;
+  return <div className="error-banner">{formatError(error)}</div>;
+}
+
+function formatError(error: unknown) {
+  if (!(error instanceof ApiError)) return '请求失败';
+  const code = error.body?.code;
+  const message = code ? errorMessages[code] : undefined;
+  return `${code ?? error.status}: ${message ?? error.message}`;
 }
 
 function formatCell(value: unknown) {
