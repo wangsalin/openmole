@@ -1,6 +1,12 @@
 import { ApiErrorBody, AuthSession, ContextOption, MenuItem } from './types';
 
 const TOKEN_KEY = 'openmole.admin.token';
+const API_BASE_URL = import.meta.env.VITE_API_BASE_URL;
+const API_BASE_CANDIDATES = API_BASE_URL
+  ? [API_BASE_URL]
+  : import.meta.env.DEV
+    ? ['']
+    : ['http://localhost:3000', 'http://localhost:3200', ''];
 
 export class ApiError extends Error {
   status: number;
@@ -37,17 +43,38 @@ export async function apiRequest<T>(
   if (options.context?.appId) headers.set('x-app-id', options.context.appId);
   if (options.context?.tenantId) headers.set('x-tenant-id', options.context.tenantId);
 
-  const response = await fetch(path, {
-    ...options,
-    headers,
-  });
+  let response: Response | undefined;
+  let body: ApiErrorBody | T | undefined;
+  let lastError: unknown;
+
+  for (const baseUrl of API_BASE_CANDIDATES) {
+    try {
+      response = await fetch(`${baseUrl}${path}`, {
+        ...options,
+        headers,
+      });
+      const requestId = response.headers.get('x-request-id') ?? undefined;
+      body = await response
+        .json()
+        .catch(() => ({ requestId, message: response?.statusText }));
+
+      if (response.ok || response.status !== 404 || API_BASE_URL) break;
+    } catch (error) {
+      lastError = error;
+      if (API_BASE_URL) break;
+    }
+  }
+
+  if (!response) {
+    throw new ApiError(0, {
+      code: 'NETWORK_ERROR',
+      message: lastError instanceof Error ? lastError.message : 'Network error',
+    });
+  }
   const requestId = response.headers.get('x-request-id') ?? undefined;
-  const body = await response
-    .json()
-    .catch(() => ({ requestId, message: response.statusText }));
 
   if (!response.ok) {
-    throw new ApiError(response.status, { requestId, ...body });
+    throw new ApiError(response.status, { requestId, ...(body as ApiErrorBody) });
   }
   return body as T;
 }

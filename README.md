@@ -74,7 +74,9 @@ npm run admin:dev
 ```
 
 The admin console is located in `apps/admin-web`. By default Vite proxies API
-requests to `http://localhost:3000`.
+requests to `http://localhost:3000` in dev. Preview/production builds use
+`VITE_API_BASE_URL`; without it, the built console tries `http://localhost:3000`
+and then `http://localhost:3200`.
 
 If Windows blocks npm cache or dependency scripts, use:
 
