@@ -506,6 +506,10 @@ th {
   grid-template-rows: auto minmax(0, 1fr);
 }
 
+.wide-drawer {
+  width: min(760px, 100vw);
+}
+
 .drawer-header {
   min-height: 72px;
   display: flex;
@@ -621,6 +625,41 @@ th {
   overflow-wrap: anywhere;
 }
 
+.members-content {
+  display: grid;
+  align-content: start;
+  gap: 14px;
+  padding: 18px;
+  overflow: auto;
+}
+
+.inline-form {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(120px, 1fr)) auto;
+  gap: 10px;
+  align-items: end;
+  padding-bottom: 14px;
+  border-bottom: 1px solid #e2e8f0;
+}
+
+.inline-form label {
+  display: grid;
+  gap: 6px;
+  color: #344154;
+  font-size: 12px;
+  font-weight: 800;
+}
+
+.inline-form input,
+.inline-form select {
+  min-height: 38px;
+  border: 1px solid #cbd5e1;
+  border-radius: 6px;
+  padding: 0 10px;
+  color: #18212f;
+  background: #ffffff;
+}
+
 @media (max-width: 920px) {
   .app-shell {
     grid-template-columns: 72px minmax(0, 1fr);
@@ -633,7 +672,8 @@ th {
 
   .metric-grid,
   .runtime-grid,
-  .filter-bar {
+  .filter-bar,
+  .inline-form {
     grid-template-columns: repeat(2, minmax(0, 1fr));
   }
 
@@ -657,7 +697,8 @@ th {
 
   .metric-grid,
   .runtime-grid,
-  .filter-bar {
+  .filter-bar,
+  .inline-form {
     grid-template-columns: 1fr;
   }
 

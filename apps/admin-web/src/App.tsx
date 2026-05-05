@@ -470,6 +470,7 @@ function ResourcePage({ title, endpoint }: { title: string; endpoint: string }) 
     row?: Record<string, unknown>;
   }>();
   const [detailRow, setDetailRow] = useState<Record<string, unknown>>();
+  const [membersTenant, setMembersTenant] = useState<Record<string, unknown>>();
   const [toast, setToast] = useState<string>();
   const query = useQuery({
     queryKey: ['resource', endpoint, auth.activeContext, filters],
@@ -544,6 +545,16 @@ function ResourcePage({ title, endpoint }: { title: string; endpoint: string }) 
             tone: action.tone,
             onClick: (row) => actionMutation.mutate({ row, actionIndex }),
           }))}
+          extraActions={
+            endpoint === '/admin/v1/tenants'
+              ? [
+                  {
+                    label: '成员',
+                    onClick: (row) => setMembersTenant(row),
+                  },
+                ]
+              : undefined
+          }
         />
       </section>
       {config && drawer ? (
@@ -558,6 +569,13 @@ function ResourcePage({ title, endpoint }: { title: string; endpoint: string }) 
       ) : null}
       {detailRow ? (
         <DetailDrawer row={detailRow} title={`${title}详情`} onClose={() => setDetailRow(undefined)} />
+      ) : null}
+      {membersTenant ? (
+        <TenantMembersDrawer
+          tenant={membersTenant}
+          context={auth.activeContext}
+          onClose={() => setMembersTenant(undefined)}
+        />
       ) : null}
     </Page>
   );
@@ -627,6 +645,7 @@ function DataTable({
   onView,
   onEdit,
   actions,
+  extraActions,
 }: {
   rows: Record<string, unknown>[];
   loading: boolean;
@@ -636,6 +655,10 @@ function DataTable({
   actions?: Array<{
     label: string;
     tone?: 'danger' | 'primary';
+    onClick(row: Record<string, unknown>): void;
+  }>;
+  extraActions?: Array<{
+    label: string;
     onClick(row: Record<string, unknown>): void;
   }>;
 }) {
@@ -657,7 +680,7 @@ function DataTable({
             {columns.map((column) => (
               <th key={column}>{columnLabels[column] ?? column}</th>
             ))}
-            {onView || onEdit || actions?.length ? <th>操作</th> : null}
+            {onView || onEdit || actions?.length || extraActions?.length ? <th>操作</th> : null}
           </tr>
         </thead>
         <tbody>
@@ -666,9 +689,14 @@ function DataTable({
               {columns.map((column) => (
                 <td key={column}>{formatCell(row[column])}</td>
               ))}
-              {onView || onEdit || actions?.length ? (
+              {onView || onEdit || actions?.length || extraActions?.length ? (
                 <td>
                   <div className="table-actions">
+                    {extraActions?.map((action) => (
+                      <button type="button" key={action.label} onClick={() => action.onClick(row)}>
+                        {action.label}
+                      </button>
+                    ))}
                     {onView ? (
                       <button type="button" onClick={() => onView(row)}>
                         详情
@@ -821,6 +849,132 @@ function DetailDrawer({
               <strong>{formatCell(value)}</strong>
             </div>
           ))}
+        </div>
+      </aside>
+    </div>
+  );
+}
+
+function TenantMembersDrawer({
+  tenant,
+  context,
+  onClose,
+}: {
+  tenant: Record<string, unknown>;
+  context?: { appId?: string; tenantId?: string | null };
+  onClose(): void;
+}) {
+  const queryClient = useQueryClient();
+  const tenantId = String(tenant.id);
+  const [values, setValues] = useState<Record<string, string>>({
+    email: '',
+    displayName: '',
+    password: '',
+    roleId: '',
+  });
+  const members = useQuery({
+    queryKey: ['tenant-members', tenantId, context],
+    queryFn: () => listResource<Record<string, unknown>>(`/admin/v1/tenants/${tenantId}/members`, context),
+  });
+  const roles = useQuery({
+    queryKey: ['tenant-roles', tenantId, context],
+    queryFn: () => listResource<Record<string, unknown>>(`/admin/v1/tenants/${tenantId}/roles`, context),
+  });
+  const addMember = useMutation({
+    mutationFn: () =>
+      createResource(`/admin/v1/tenants/${tenantId}/members`, compactValues(values), context),
+    onSuccess: async () => {
+      setValues({ email: '', displayName: '', password: '', roleId: '' });
+      await queryClient.invalidateQueries({ queryKey: ['tenant-members', tenantId] });
+    },
+  });
+  const disableMember = useMutation({
+    mutationFn: (membershipId: string) => {
+      if (!window.confirm('确认禁用该成员？')) return Promise.resolve(undefined);
+      return runResourceAction(`/admin/v1/tenants/${tenantId}/members/${membershipId}/disable`, context);
+    },
+    onSuccess: async () => {
+      await queryClient.invalidateQueries({ queryKey: ['tenant-members', tenantId] });
+    },
+  });
+
+  return (
+    <div className="drawer-backdrop">
+      <aside className="drawer-panel wide-drawer">
+        <div className="drawer-header">
+          <div>
+            <h2>租户成员</h2>
+            <p>{String(tenant.name ?? tenantId)}</p>
+          </div>
+          <button className="icon-button" onClick={onClose} type="button">
+            ×
+          </button>
+        </div>
+        <div className="members-content">
+          {addMember.error ? <ErrorBanner error={addMember.error} /> : null}
+          {disableMember.error ? <ErrorBanner error={disableMember.error} /> : null}
+          <form
+            className="inline-form"
+            onSubmit={(event) => {
+              event.preventDefault();
+              addMember.mutate();
+            }}
+          >
+            <label>
+              邮箱
+              <input
+                required
+                value={values.email}
+                onChange={(event) => setValues({ ...values, email: event.target.value })}
+              />
+            </label>
+            <label>
+              姓名
+              <input
+                value={values.displayName}
+                onChange={(event) => setValues({ ...values, displayName: event.target.value })}
+              />
+            </label>
+            <label>
+              初始密码
+              <input
+                required
+                type="password"
+                value={values.password}
+                onChange={(event) => setValues({ ...values, password: event.target.value })}
+              />
+            </label>
+            <label>
+              角色
+              <select
+                required
+                value={values.roleId}
+                onChange={(event) => setValues({ ...values, roleId: event.target.value })}
+              >
+                <option value="">请选择</option>
+                {(roles.data ?? []).map((role) => (
+                  <option key={String(role.id)} value={String(role.id)}>
+                    {String(role.name ?? role.roleKey ?? role.id)}
+                  </option>
+                ))}
+              </select>
+            </label>
+            <button className="primary-button" type="submit" disabled={addMember.isPending}>
+              {addMember.isPending ? '添加中' : '添加成员'}
+            </button>
+          </form>
+          <DataTable
+            rows={members.data ?? []}
+            loading={members.isLoading}
+            preferredColumns={['userId', 'roleId', 'status', 'createdAt']}
+            actions={[
+              {
+                label: '禁用',
+                tone: 'danger',
+                onClick: (row) => disableMember.mutate(String(row.id)),
+              },
+            ]}
+          />
         </div>
       </aside>
     </div>
