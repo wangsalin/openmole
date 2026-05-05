@@ -78,6 +78,24 @@ const columnLabels: Record<string, string> = {
   title: '标题',
   action: '操作',
   resource: '资源',
+  planId: '套餐 ID',
+  orderNo: '订单号',
+  amount: '金额',
+  currency: '币种',
+  startAt: '开始时间',
+  endAt: '结束时间',
+  autoRenew: '自动续费',
+  featureKey: '功能',
+  metric: '指标',
+  quantity: '数量',
+  costAmount: '成本金额',
+  chargeAmount: '计费金额',
+  occurredAt: '发生时间',
+  limit: '上限',
+  used: '已用',
+  periodStart: '周期开始',
+  periodEnd: '周期结束',
+  roleId: '角色 ID',
 };
 
 interface FieldConfig {
@@ -119,6 +137,39 @@ const tenantStatusOptions = [
   { label: '逾期', value: 'overdue' },
   { label: '过期', value: 'expired' },
 ];
+
+const tenantOperationTabs = [
+  {
+    key: 'subscriptions',
+    label: '订阅',
+    endpoint: '/admin/v1/subscriptions',
+    columns: ['planId', 'status', 'startAt', 'endAt', 'autoRenew', 'createdAt'],
+  },
+  {
+    key: 'orders',
+    label: '订单',
+    endpoint: '/admin/v1/orders',
+    columns: ['orderNo', 'planId', 'status', 'amount', 'currency', 'createdAt'],
+  },
+  {
+    key: 'ledger',
+    label: '用量流水',
+    endpoint: '/admin/v1/usage/ledger',
+    columns: ['featureKey', 'metric', 'quantity', 'costAmount', 'chargeAmount', 'occurredAt'],
+  },
+  {
+    key: 'quotas',
+    label: '额度',
+    endpoint: '/admin/v1/usage/quotas',
+    columns: ['featureKey', 'metric', 'limit', 'used', 'periodStart', 'periodEnd'],
+  },
+  {
+    key: 'audit',
+    label: '审计',
+    endpoint: '/admin/v1/audit-logs',
+    columns: ['action', 'resource', 'userId', 'createdAt'],
+  },
+] as const;
 
 const resourceConfigs: Record<string, ResourceConfig> = {
   '/admin/v1/apps': {
@@ -516,6 +567,7 @@ function ResourcePage({ title, endpoint }: { title: string; endpoint: string }) 
   }>();
   const [detailRow, setDetailRow] = useState<Record<string, unknown>>();
   const [membersTenant, setMembersTenant] = useState<Record<string, unknown>>();
+  const [operationsTenant, setOperationsTenant] = useState<Record<string, unknown>>();
   const [toast, setToast] = useState<string>();
   const query = useQuery({
     queryKey: ['resource', endpoint, auth.activeContext, filters],
@@ -594,6 +646,10 @@ function ResourcePage({ title, endpoint }: { title: string; endpoint: string }) 
             endpoint === '/admin/v1/tenants'
               ? [
                   {
+                    label: '运营',
+                    onClick: (row) => setOperationsTenant(row),
+                  },
+                  {
                     label: '成员',
                     onClick: (row) => setMembersTenant(row),
                   },
@@ -620,6 +676,12 @@ function ResourcePage({ title, endpoint }: { title: string; endpoint: string }) 
           tenant={membersTenant}
           context={auth.activeContext}
           onClose={() => setMembersTenant(undefined)}
+        />
+      ) : null}
+      {operationsTenant ? (
+        <TenantOperationsDrawer
+          tenant={operationsTenant}
+          onClose={() => setOperationsTenant(undefined)}
         />
       ) : null}
     </Page>
@@ -1019,6 +1081,343 @@ function TenantMembersDrawer({
                 onClick: (row) => disableMember.mutate(String(row.id)),
               },
             ]}
+          />
+        </div>
+      </aside>
+    </div>
+  );
+}
+
+function TenantOperationsDrawer({
+  tenant,
+  onClose,
+}: {
+  tenant: Record<string, unknown>;
+  onClose(): void;
+}) {
+  const queryClient = useQueryClient();
+  const [activeTab, setActiveTab] = useState<(typeof tenantOperationTabs)[number]['key']>('subscriptions');
+  const [subscriptionValues, setSubscriptionValues] = useState<Record<string, string>>({
+    planId: '',
+    months: '1',
+  });
+  const [usageValues, setUsageValues] = useState<Record<string, string>>({
+    featureKey: '',
+    metric: 'count',
+    quantity: '1',
+    sourceType: 'admin',
+    sourceId: '',
+    costAmount: '',
+    chargeAmount: '',
+  });
+  const [entitlementValues, setEntitlementValues] = useState<Record<string, string>>({
+    featureKey: '',
+    metric: 'count',
+    quantity: '1',
+  });
+  const [entitlementResult, setEntitlementResult] = useState<Record<string, unknown>>();
+  const [message, setMessage] = useState<string>();
+  const active = tenantOperationTabs.find((tab) => tab.key === activeTab) ?? tenantOperationTabs[0];
+  const tenantId = String(tenant.id);
+  const appId = tenant.appId === undefined || tenant.appId === null ? '' : String(tenant.appId);
+  const scopedContext = { appId: appId || undefined, tenantId };
+  const scopedFilters = compactValues({ appId, tenantId });
+  const records = useQuery({
+    queryKey: ['tenant-operations', tenantId, appId, active.key],
+    queryFn: () => listResource<Record<string, unknown>>(active.endpoint, scopedContext, scopedFilters),
+  });
+  const plans = useQuery({
+    queryKey: ['tenant-operation-plans', appId],
+    queryFn: () =>
+      listResource<Record<string, unknown>>('/admin/v1/plans', scopedContext, {
+        appId,
+        status: 'active',
+      }),
+    enabled: Boolean(appId),
+  });
+  const features = useQuery({
+    queryKey: ['tenant-operation-features'],
+    queryFn: () =>
+      listResource<Record<string, unknown>>('/admin/v1/features', scopedContext, {
+        status: 'active',
+      }),
+  });
+  const openSubscription = useMutation({
+    mutationFn: () =>
+      createResource(
+        '/admin/v1/subscriptions/open',
+        {
+          tenantId,
+          planId: subscriptionValues.planId,
+          months: Number(subscriptionValues.months || 1),
+        },
+        scopedContext,
+      ),
+    onSuccess: async () => {
+      setMessage('订阅已开通，额度已按套餐初始化');
+      await queryClient.invalidateQueries({ queryKey: ['tenant-operations', tenantId, appId] });
+      await queryClient.invalidateQueries({ queryKey: ['resource', '/admin/v1/tenants'] });
+    },
+  });
+  const recordUsage = useMutation({
+    mutationFn: () =>
+      createResource(
+        '/admin/v1/usage/ledger',
+        {
+          appId,
+          tenantId,
+          featureKey: usageValues.featureKey,
+          metric: usageValues.metric || 'count',
+          quantity: Number(usageValues.quantity || 1),
+          sourceType: usageValues.sourceType || undefined,
+          sourceId: usageValues.sourceId || undefined,
+          costAmount: usageValues.costAmount ? Number(usageValues.costAmount) : undefined,
+          chargeAmount: usageValues.chargeAmount ? Number(usageValues.chargeAmount) : undefined,
+        },
+        scopedContext,
+      ),
+    onSuccess: async () => {
+      setMessage('用量已记录，匹配周期内的额度已同步扣减');
+      setUsageValues({
+        featureKey: '',
+        metric: 'count',
+        quantity: '1',
+        sourceType: 'admin',
+        sourceId: '',
+        costAmount: '',
+        chargeAmount: '',
+      });
+      await queryClient.invalidateQueries({ queryKey: ['tenant-operations', tenantId, appId] });
+    },
+  });
+  const checkEntitlement = useMutation({
+    mutationFn: () =>
+      createResource<Record<string, unknown>>(
+        '/admin/v1/usage/entitlements/check',
+        {
+          tenantId,
+          featureKey: entitlementValues.featureKey,
+          metric: entitlementValues.metric || undefined,
+          quantity: Number(entitlementValues.quantity || 1),
+        },
+        scopedContext,
+      ),
+    onSuccess: (result) => {
+      setEntitlementResult(result);
+      setMessage(result.allowed ? '权益检查通过' : '权益检查未通过');
+    },
+  });
+
+  return (
+    <div className="drawer-backdrop">
+      <aside className="drawer-panel wide-drawer">
+        <div className="drawer-header">
+          <div>
+            <h2>租户运营</h2>
+            <p>{String(tenant.name ?? tenantId)}</p>
+          </div>
+          <button className="icon-button" onClick={onClose} type="button">
+            ×
+          </button>
+        </div>
+        <div className="members-content">
+          <div className="tab-list" role="tablist" aria-label="租户运营数据">
+            {tenantOperationTabs.map((tab) => (
+              <button
+                key={tab.key}
+                type="button"
+                role="tab"
+                aria-selected={activeTab === tab.key}
+                className={activeTab === tab.key ? 'tab-button active' : 'tab-button'}
+                onClick={() => setActiveTab(tab.key)}
+              >
+                {tab.label}
+              </button>
+            ))}
+          </div>
+          {message ? (
+            <div className="success-banner">
+              <span>{message}</span>
+              <button type="button" onClick={() => setMessage(undefined)}>
+                关闭
+              </button>
+            </div>
+          ) : null}
+          {openSubscription.error ? <ErrorBanner error={openSubscription.error} /> : null}
+          {recordUsage.error ? <ErrorBanner error={recordUsage.error} /> : null}
+          {checkEntitlement.error ? <ErrorBanner error={checkEntitlement.error} /> : null}
+          {active.key === 'subscriptions' ? (
+            <form
+              className="inline-form operation-form"
+              onSubmit={(event) => {
+                event.preventDefault();
+                if (!window.confirm('确认为该租户开通所选套餐？')) return;
+                openSubscription.mutate();
+              }}
+            >
+              <label>
+                套餐
+                <select
+                  required
+                  value={subscriptionValues.planId}
+                  onChange={(event) =>
+                    setSubscriptionValues({ ...subscriptionValues, planId: event.target.value })
+                  }
+                >
+                  <option value="">请选择</option>
+                  {(plans.data ?? []).map((plan) => (
+                    <option key={String(plan.id)} value={String(plan.id)}>
+                      {String(plan.name ?? plan.id)}
+                    </option>
+                  ))}
+                </select>
+              </label>
+              <label>
+                月数
+                <input
+                  required
+                  min="1"
+                  type="number"
+                  value={subscriptionValues.months}
+                  onChange={(event) =>
+                    setSubscriptionValues({ ...subscriptionValues, months: event.target.value })
+                  }
+                />
+              </label>
+              <button className="primary-button" type="submit" disabled={openSubscription.isPending}>
+                {openSubscription.isPending ? '开通中' : '开通订阅'}
+              </button>
+            </form>
+          ) : null}
+          {active.key === 'ledger' ? (
+            <form
+              className="inline-form operation-form usage-form"
+              onSubmit={(event) => {
+                event.preventDefault();
+                recordUsage.mutate();
+              }}
+            >
+              <label>
+                功能
+                <select
+                  required
+                  value={usageValues.featureKey}
+                  onChange={(event) => setUsageValues({ ...usageValues, featureKey: event.target.value })}
+                >
+                  <option value="">请选择</option>
+                  {(features.data ?? []).map((feature) => (
+                    <option key={String(feature.id)} value={String(feature.featureKey)}>
+                      {String(feature.name ?? feature.featureKey)}
+                    </option>
+                  ))}
+                </select>
+              </label>
+              <label>
+                指标
+                <input
+                  required
+                  value={usageValues.metric}
+                  onChange={(event) => setUsageValues({ ...usageValues, metric: event.target.value })}
+                />
+              </label>
+              <label>
+                数量
+                <input
+                  required
+                  min="1"
+                  type="number"
+                  value={usageValues.quantity}
+                  onChange={(event) => setUsageValues({ ...usageValues, quantity: event.target.value })}
+                />
+              </label>
+              <label>
+                来源
+                <input
+                  value={usageValues.sourceType}
+                  onChange={(event) => setUsageValues({ ...usageValues, sourceType: event.target.value })}
+                />
+              </label>
+              <label>
+                来源 ID
+                <input
+                  value={usageValues.sourceId}
+                  onChange={(event) => setUsageValues({ ...usageValues, sourceId: event.target.value })}
+                />
+              </label>
+              <button className="primary-button" type="submit" disabled={recordUsage.isPending}>
+                {recordUsage.isPending ? '记录中' : '记录用量'}
+              </button>
+            </form>
+          ) : null}
+          {active.key === 'quotas' ? (
+            <>
+              <form
+                className="inline-form operation-form quota-check-form"
+                onSubmit={(event) => {
+                  event.preventDefault();
+                  checkEntitlement.mutate();
+                }}
+              >
+                <label>
+                  功能
+                  <select
+                    required
+                    value={entitlementValues.featureKey}
+                    onChange={(event) =>
+                      setEntitlementValues({ ...entitlementValues, featureKey: event.target.value })
+                    }
+                  >
+                    <option value="">请选择</option>
+                    {(features.data ?? []).map((feature) => (
+                      <option key={String(feature.id)} value={String(feature.featureKey)}>
+                        {String(feature.name ?? feature.featureKey)}
+                      </option>
+                    ))}
+                  </select>
+                </label>
+                <label>
+                  指标
+                  <input
+                    value={entitlementValues.metric}
+                    onChange={(event) =>
+                      setEntitlementValues({ ...entitlementValues, metric: event.target.value })
+                    }
+                  />
+                </label>
+                <label>
+                  数量
+                  <input
+                    required
+                    min="1"
+                    type="number"
+                    value={entitlementValues.quantity}
+                    onChange={(event) =>
+                      setEntitlementValues({ ...entitlementValues, quantity: event.target.value })
+                    }
+                  />
+                </label>
+                <button className="primary-button" type="submit" disabled={checkEntitlement.isPending}>
+                  {checkEntitlement.isPending ? '检查中' : '检查权益'}
+                </button>
+              </form>
+              {entitlementResult ? (
+                <div className="operation-result">
+                  {Object.entries(entitlementResult).map(([key, value]) => (
+                    <div className="detail-row" key={key}>
+                      <span>{columnLabels[key] ?? key}</span>
+                      <strong>{formatCell(value)}</strong>
+                    </div>
+                  ))}
+                </div>
+              ) : null}
+            </>
+          ) : null}
+          {records.error ? <ErrorBanner error={records.error} /> : null}
+          <DataTable
+            rows={records.data ?? []}
+            loading={records.isLoading}
+            preferredColumns={[...active.columns]}
+            onView={undefined}
           />
         </div>
       </aside>
