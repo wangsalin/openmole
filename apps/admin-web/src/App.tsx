@@ -88,6 +88,8 @@ interface FieldConfig {
 
 interface ResourceConfig {
   endpoint: string;
+  columns?: string[];
+  filters?: FieldConfig[];
   fields: FieldConfig[];
   createTitle: string;
   editTitle: string;
@@ -118,6 +120,12 @@ const tenantStatusOptions = [
 const resourceConfigs: Record<string, ResourceConfig> = {
   '/admin/v1/apps': {
     endpoint: '/admin/v1/apps',
+    columns: ['name', 'appKey', 'appType', 'domain', 'status', 'createdAt'],
+    filters: [
+      { key: 'q', label: '搜索', placeholder: '应用名称 / 标识 / 域名' },
+      { key: 'appType', label: '应用类型', placeholder: 'saas' },
+      { key: 'status', label: '状态', type: 'select', options: statusOptions },
+    ],
     createTitle: '新建应用',
     editTitle: '编辑应用',
     fields: [
@@ -137,6 +145,11 @@ const resourceConfigs: Record<string, ResourceConfig> = {
   },
   '/admin/v1/tenants': {
     endpoint: '/admin/v1/tenants',
+    columns: ['name', 'appId', 'tenantType', 'contactName', 'email', 'status', 'createdAt'],
+    filters: [
+      { key: 'appId', label: '应用 ID' },
+      { key: 'status', label: '状态', type: 'select', options: tenantStatusOptions },
+    ],
     createTitle: '新建租户',
     editTitle: '编辑租户',
     fields: [
@@ -162,6 +175,11 @@ const resourceConfigs: Record<string, ResourceConfig> = {
   },
   '/admin/v1/system/settings': {
     endpoint: '/admin/v1/system/settings',
+    columns: ['key', 'scope', 'appId', 'tenantId', 'value', 'updatedAt'],
+    filters: [
+      { key: 'key', label: '配置键' },
+      { key: 'scope', label: '作用域' },
+    ],
     createTitle: '保存设置',
     editTitle: '编辑设置',
     fields: [
@@ -394,13 +412,14 @@ function ResourcePage({ title, endpoint }: { title: string; endpoint: string }) 
   const auth = useAuth();
   const queryClient = useQueryClient();
   const config = resourceConfigs[endpoint];
+  const [filters, setFilters] = useState<Record<string, string>>({});
   const [drawer, setDrawer] = useState<{
     mode: 'create' | 'edit';
     row?: Record<string, unknown>;
   }>();
   const query = useQuery({
-    queryKey: ['resource', endpoint, auth.activeContext],
-    queryFn: () => listResource<Record<string, unknown>>(endpoint, auth.activeContext),
+    queryKey: ['resource', endpoint, auth.activeContext, filters],
+    queryFn: () => listResource<Record<string, unknown>>(endpoint, auth.activeContext, filters),
   });
   const saveMutation = useMutation({
     mutationFn: (values: Record<string, string>) => {
@@ -441,12 +460,16 @@ function ResourcePage({ title, endpoint }: { title: string; endpoint: string }) 
       }
     >
       <section className="panel">
+        {config?.filters?.length ? (
+          <FilterBar fields={config.filters} values={filters} onChange={setFilters} />
+        ) : null}
         {query.error ? <ErrorBanner error={query.error} /> : null}
         {saveMutation.error ? <ErrorBanner error={saveMutation.error} /> : null}
         {actionMutation.error ? <ErrorBanner error={actionMutation.error} /> : null}
         <DataTable
           rows={query.data ?? []}
           loading={query.isLoading}
+          preferredColumns={config?.columns}
           onEdit={config ? (row) => setDrawer({ mode: 'edit', row }) : undefined}
           actions={config?.actions?.map((action, actionIndex) => ({
             label: action.label,
@@ -484,14 +507,58 @@ function Page({ title, right, children }: { title: string; right?: ReactNode; ch
   );
 }
 
+function FilterBar({
+  fields,
+  values,
+  onChange,
+}: {
+  fields: FieldConfig[];
+  values: Record<string, string>;
+  onChange(values: Record<string, string>): void;
+}) {
+  return (
+    <div className="filter-bar">
+      {fields.map((field) => (
+        <label key={field.key}>
+          <span>{field.label}</span>
+          {field.type === 'select' ? (
+            <select
+              value={values[field.key] ?? ''}
+              onChange={(event) => onChange({ ...values, [field.key]: event.target.value })}
+            >
+              <option value="">全部</option>
+              {field.options?.map((option) => (
+                <option key={option.value} value={option.value}>
+                  {option.label}
+                </option>
+              ))}
+            </select>
+          ) : (
+            <input
+              value={values[field.key] ?? ''}
+              placeholder={field.placeholder}
+              onChange={(event) => onChange({ ...values, [field.key]: event.target.value })}
+            />
+          )}
+        </label>
+      ))}
+      <button type="button" className="ghost-button" onClick={() => onChange({})}>
+        重置
+      </button>
+    </div>
+  );
+}
+
 function DataTable({
   rows,
   loading,
+  preferredColumns,
   onEdit,
   actions,
 }: {
   rows: Record<string, unknown>[];
   loading: boolean;
+  preferredColumns?: string[];
   onEdit?: (row: Record<string, unknown>) => void;
   actions?: Array<{
     label: string;
@@ -500,10 +567,11 @@ function DataTable({
   }>;
 }) {
   const columns = useMemo(() => {
+    if (preferredColumns?.length) return preferredColumns;
     const keys = new Set<string>();
     rows.slice(0, 5).forEach((row) => Object.keys(row).slice(0, 6).forEach((key) => keys.add(key)));
     return [...keys];
-  }, [rows]);
+  }, [preferredColumns, rows]);
 
   if (loading) return <div className="empty-state">加载中</div>;
   if (!rows.length) return <div className="empty-state">暂无数据</div>;

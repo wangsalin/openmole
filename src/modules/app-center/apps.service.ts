@@ -15,6 +15,13 @@ export class AppsService {
         id: tenantContext?.isPlatform ? undefined : tenantContext?.appId,
         status: query.status,
         appType: query.appType,
+        OR: query.q
+          ? [
+              { name: { contains: query.q, mode: 'insensitive' } },
+              { appKey: { contains: query.q, mode: 'insensitive' } },
+              { domain: { contains: query.q, mode: 'insensitive' } },
+            ]
+          : undefined,
       }),
       skip,
       take,

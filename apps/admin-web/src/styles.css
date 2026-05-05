@@ -341,6 +341,33 @@ select {
   padding: 14px;
 }
 
+.filter-bar {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(160px, 1fr)) auto;
+  gap: 10px;
+  align-items: end;
+  margin-bottom: 12px;
+}
+
+.filter-bar label {
+  display: grid;
+  gap: 6px;
+  color: #344154;
+  font-size: 12px;
+  font-weight: 800;
+}
+
+.filter-bar input,
+.filter-bar select {
+  min-height: 36px;
+  border: 1px solid #cbd5e1;
+  border-radius: 6px;
+  padding: 0 10px;
+  color: #18212f;
+  background: #ffffff;
+  outline: none;
+}
+
 .panel-heading {
   height: 36px;
   display: flex;
@@ -535,7 +562,8 @@ th {
   }
 
   .metric-grid,
-  .runtime-grid {
+  .runtime-grid,
+  .filter-bar {
     grid-template-columns: repeat(2, minmax(0, 1fr));
   }
 
@@ -558,7 +586,8 @@ th {
   }
 
   .metric-grid,
-  .runtime-grid {
+  .runtime-grid,
+  .filter-bar {
     grid-template-columns: 1fr;
   }
 

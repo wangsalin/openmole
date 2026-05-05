@@ -98,8 +98,15 @@ export function logout() {
   return apiRequest<{ ok: boolean }>('/auth/logout', { method: 'POST' });
 }
 
-export function listResource<T>(path: string, context?: { appId?: string; tenantId?: string | null }) {
-  return apiRequest<T[]>(path, { context });
+export function listResource<T>(
+  path: string,
+  context?: { appId?: string; tenantId?: string | null },
+  filters?: Record<string, string>,
+) {
+  const query = new URLSearchParams(
+    Object.entries(filters ?? {}).filter(([, value]) => value !== ''),
+  ).toString();
+  return apiRequest<T[]>(query ? `${path}?${query}` : path, { context });
 }
 
 export function createResource<T>(

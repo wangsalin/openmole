@@ -11,6 +11,10 @@ import { PaginationDto } from '../../../common/dto/pagination.dto';
 export class ListAppsDto extends PaginationDto {
   @IsOptional()
   @IsString()
+  q?: string;
+
+  @IsOptional()
+  @IsString()
   appType?: string;
 
   @IsOptional()
