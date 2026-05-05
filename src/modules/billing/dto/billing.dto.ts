@@ -38,6 +38,36 @@ export class CreateFeatureDto {
   @IsOptional()
   @IsBoolean()
   isMetered?: boolean;
+
+  @IsOptional()
+  @IsIn(['active', 'inactive', 'disabled', 'archived'])
+  status?: string;
+}
+
+export class UpdateFeatureDto {
+  @IsOptional()
+  @IsString()
+  featureKey?: string;
+
+  @IsOptional()
+  @IsString()
+  name?: string;
+
+  @IsOptional()
+  @IsString()
+  module?: string;
+
+  @IsOptional()
+  @IsString()
+  description?: string;
+
+  @IsOptional()
+  @IsBoolean()
+  isMetered?: boolean;
+
+  @IsOptional()
+  @IsIn(['active', 'inactive', 'disabled', 'archived'])
+  status?: string;
 }
 
 export class ListPlansDto extends PaginationDto {
@@ -80,6 +110,48 @@ export class CreatePlanDto {
   @IsOptional()
   @IsBoolean()
   isRecommended?: boolean;
+
+  @IsOptional()
+  @IsIn(['active', 'inactive', 'disabled', 'archived'])
+  status?: string;
+}
+
+export class UpdatePlanDto {
+  @IsOptional()
+  @IsString()
+  appId?: string;
+
+  @IsOptional()
+  @IsString()
+  name?: string;
+
+  @IsOptional()
+  @IsString()
+  description?: string;
+
+  @IsOptional()
+  @Type(() => Number)
+  @IsNumber()
+  @Min(0)
+  priceMonthly?: number;
+
+  @IsOptional()
+  @Type(() => Number)
+  @IsNumber()
+  @Min(0)
+  priceYearly?: number;
+
+  @IsOptional()
+  @IsBoolean()
+  isPublic?: boolean;
+
+  @IsOptional()
+  @IsBoolean()
+  isRecommended?: boolean;
+
+  @IsOptional()
+  @IsIn(['active', 'inactive', 'disabled', 'archived'])
+  status?: string;
 }
 
 export class AttachPlanFeatureDto {

@@ -96,6 +96,19 @@ const columnLabels: Record<string, string> = {
   periodStart: '周期开始',
   periodEnd: '周期结束',
   roleId: '角色 ID',
+  featureId: '功能 ID',
+  featureName: '功能名称',
+  module: '模块',
+  description: '描述',
+  isMetered: '计量',
+  priceMonthly: '月付价格',
+  priceYearly: '年付价格',
+  isPublic: '公开',
+  isRecommended: '推荐',
+  quotaType: '额度类型',
+  quotaLimit: '额度上限',
+  resetCycle: '重置周期',
+  enabled: '启用',
 };
 
 interface FieldConfig {
@@ -105,6 +118,7 @@ interface FieldConfig {
   type?: 'text' | 'select' | 'textarea' | 'checkbox' | 'password';
   options?: Array<{ label: string; value: string }>;
   placeholder?: string;
+  defaultValue?: string;
 }
 
 interface ResourceConfig {
@@ -318,6 +332,94 @@ const resourceConfigs: Record<string, ResourceConfig> = {
         tone: 'primary',
         run: (row, context) =>
           updateResource(`/admin/v1/users/${String(row.id)}`, { status: 'active' }, context),
+      },
+    ],
+  },
+  '/admin/v1/plans': {
+    endpoint: '/admin/v1/plans',
+    columns: ['name', 'appId', 'priceMonthly', 'priceYearly', 'isPublic', 'isRecommended', 'status', 'createdAt'],
+    filters: [
+      { key: 'appId', label: '应用 ID' },
+      { key: 'status', label: '状态', type: 'select', options: statusOptions },
+    ],
+    createTitle: '新建套餐',
+    editTitle: '编辑套餐',
+    fields: [
+      { key: 'appId', label: '应用 ID', required: true },
+      { key: 'name', label: '套餐名称', required: true },
+      { key: 'description', label: '描述', type: 'textarea' },
+      { key: 'priceMonthly', label: '月付价格', placeholder: '0' },
+      { key: 'priceYearly', label: '年付价格', placeholder: '0' },
+      { key: 'isPublic', label: '公开展示', type: 'checkbox', defaultValue: 'true' },
+      { key: 'isRecommended', label: '推荐套餐', type: 'checkbox' },
+      { key: 'status', label: '状态', type: 'select', options: statusOptions },
+    ],
+    transform(values) {
+      return {
+        appId: values.appId,
+        name: values.name,
+        description: values.description || undefined,
+        priceMonthly: values.priceMonthly ? Number(values.priceMonthly) : undefined,
+        priceYearly: values.priceYearly ? Number(values.priceYearly) : undefined,
+        isPublic: values.isPublic === 'true',
+        isRecommended: values.isRecommended === 'true',
+        status: values.status || undefined,
+      };
+    },
+    actions: [
+      {
+        label: '停用',
+        tone: 'danger',
+        run: (row, context) =>
+          updateResource(`/admin/v1/plans/${String(row.id)}`, { status: 'disabled' }, context),
+      },
+      {
+        label: '启用',
+        tone: 'primary',
+        run: (row, context) =>
+          updateResource(`/admin/v1/plans/${String(row.id)}`, { status: 'active' }, context),
+      },
+    ],
+  },
+  '/admin/v1/features': {
+    endpoint: '/admin/v1/features',
+    columns: ['featureKey', 'name', 'module', 'isMetered', 'status', 'createdAt'],
+    filters: [
+      { key: 'module', label: '模块' },
+      { key: 'status', label: '状态', type: 'select', options: statusOptions },
+    ],
+    createTitle: '新建功能项',
+    editTitle: '编辑功能项',
+    fields: [
+      { key: 'featureKey', label: '功能标识', required: true, placeholder: 'api_calls' },
+      { key: 'name', label: '功能名称', required: true },
+      { key: 'module', label: '所属模块', required: true, placeholder: 'billing' },
+      { key: 'description', label: '描述', type: 'textarea' },
+      { key: 'isMetered', label: '按量计量', type: 'checkbox' },
+      { key: 'status', label: '状态', type: 'select', options: statusOptions },
+    ],
+    transform(values) {
+      return {
+        featureKey: values.featureKey,
+        name: values.name,
+        module: values.module,
+        description: values.description || undefined,
+        isMetered: values.isMetered === 'true',
+        status: values.status || undefined,
+      };
+    },
+    actions: [
+      {
+        label: '停用',
+        tone: 'danger',
+        run: (row, context) =>
+          updateResource(`/admin/v1/features/${String(row.id)}`, { status: 'disabled' }, context),
+      },
+      {
+        label: '启用',
+        tone: 'primary',
+        run: (row, context) =>
+          updateResource(`/admin/v1/features/${String(row.id)}`, { status: 'active' }, context),
       },
     ],
   },
@@ -568,6 +670,8 @@ function ResourcePage({ title, endpoint }: { title: string; endpoint: string }) 
   const [detailRow, setDetailRow] = useState<Record<string, unknown>>();
   const [membersTenant, setMembersTenant] = useState<Record<string, unknown>>();
   const [operationsTenant, setOperationsTenant] = useState<Record<string, unknown>>();
+  const [featuresOpen, setFeaturesOpen] = useState(false);
+  const [planFeaturesPlan, setPlanFeaturesPlan] = useState<Record<string, unknown>>();
   const [toast, setToast] = useState<string>();
   const query = useQuery({
     queryKey: ['resource', endpoint, auth.activeContext, filters],
@@ -610,9 +714,16 @@ function ResourcePage({ title, endpoint }: { title: string; endpoint: string }) 
       title={title}
       right={
         config ? (
-          <button className="secondary-button" onClick={() => setDrawer({ mode: 'create' })}>
-            新建
-          </button>
+          <div className="page-actions">
+            {endpoint === '/admin/v1/plans' ? (
+              <button className="ghost-button" type="button" onClick={() => setFeaturesOpen(true)}>
+                功能项
+              </button>
+            ) : null}
+            <button className="secondary-button" onClick={() => setDrawer({ mode: 'create' })}>
+              新建
+            </button>
+          </div>
         ) : undefined
       }
     >
@@ -643,7 +754,14 @@ function ResourcePage({ title, endpoint }: { title: string; endpoint: string }) 
             onClick: (row) => actionMutation.mutate({ row, actionIndex }),
           }))}
           extraActions={
-            endpoint === '/admin/v1/tenants'
+            endpoint === '/admin/v1/plans'
+              ? [
+                  {
+                    label: '功能配置',
+                    onClick: (row) => setPlanFeaturesPlan(row),
+                  },
+                ]
+              : endpoint === '/admin/v1/tenants'
               ? [
                   {
                     label: '运营',
@@ -682,6 +800,19 @@ function ResourcePage({ title, endpoint }: { title: string; endpoint: string }) 
         <TenantOperationsDrawer
           tenant={operationsTenant}
           onClose={() => setOperationsTenant(undefined)}
+        />
+      ) : null}
+      {featuresOpen ? (
+        <FeatureManagementDrawer
+          context={auth.activeContext}
+          onClose={() => setFeaturesOpen(false)}
+        />
+      ) : null}
+      {planFeaturesPlan ? (
+        <PlanFeaturesDrawer
+          plan={planFeaturesPlan}
+          context={auth.activeContext}
+          onClose={() => setPlanFeaturesPlan(undefined)}
         />
       ) : null}
     </Page>
@@ -956,6 +1087,279 @@ function DetailDrawer({
               <strong>{formatCell(value)}</strong>
             </div>
           ))}
+        </div>
+      </aside>
+    </div>
+  );
+}
+
+function FeatureManagementDrawer({
+  context,
+  onClose,
+}: {
+  context?: { appId?: string; tenantId?: string | null };
+  onClose(): void;
+}) {
+  const queryClient = useQueryClient();
+  const config = resourceConfigs['/admin/v1/features'];
+  const [filters, setFilters] = useState<Record<string, string>>({});
+  const [drawer, setDrawer] = useState<{
+    mode: 'create' | 'edit';
+    row?: Record<string, unknown>;
+  }>();
+  const [message, setMessage] = useState<string>();
+  const features = useQuery({
+    queryKey: ['billing-features', context, filters],
+    queryFn: () => listResource<Record<string, unknown>>('/admin/v1/features', context, filters),
+  });
+  const saveFeature = useMutation({
+    mutationFn: (values: Record<string, string>) => {
+      const payload = config.transform ? config.transform(values, drawer?.mode ?? 'create') : compactValues(values);
+      if (drawer?.mode === 'edit' && drawer.row?.id) {
+        return updateResource(`/admin/v1/features/${String(drawer.row.id)}`, payload, context);
+      }
+      return createResource('/admin/v1/features', payload, context);
+    },
+    onSuccess: async () => {
+      setDrawer(undefined);
+      setMessage('功能项已保存');
+      await queryClient.invalidateQueries({ queryKey: ['billing-features'] });
+      await queryClient.invalidateQueries({ queryKey: ['tenant-operation-features'] });
+    },
+  });
+  const actionMutation = useMutation({
+    mutationFn: (input: { row: Record<string, unknown>; actionIndex: number }) => {
+      const action = config.actions?.[input.actionIndex];
+      if (!action) throw new Error('Unsupported action');
+      if (!window.confirm(`确认执行“${action.label}”？`)) return Promise.resolve(undefined);
+      return action.run(input.row, context);
+    },
+    onSuccess: async () => {
+      setMessage('操作已完成');
+      await queryClient.invalidateQueries({ queryKey: ['billing-features'] });
+    },
+  });
+
+  return (
+    <div className="drawer-backdrop">
+      <aside className="drawer-panel wide-drawer">
+        <div className="drawer-header">
+          <div>
+            <h2>功能项管理</h2>
+            <p>维护可被套餐绑定和计量扣减的功能能力</p>
+          </div>
+          <button className="icon-button" onClick={onClose} type="button">
+            ×
+          </button>
+        </div>
+        <div className="members-content">
+          {message ? (
+            <div className="success-banner">
+              <span>{message}</span>
+              <button type="button" onClick={() => setMessage(undefined)}>
+                关闭
+              </button>
+            </div>
+          ) : null}
+          <div className="drawer-toolbar">
+            <FilterBar fields={config.filters ?? []} values={filters} onChange={setFilters} />
+            <button className="secondary-button" type="button" onClick={() => setDrawer({ mode: 'create' })}>
+              新建功能项
+            </button>
+          </div>
+          {features.error ? <ErrorBanner error={features.error} /> : null}
+          {saveFeature.error ? <ErrorBanner error={saveFeature.error} /> : null}
+          {actionMutation.error ? <ErrorBanner error={actionMutation.error} /> : null}
+          <DataTable
+            rows={features.data ?? []}
+            loading={features.isLoading}
+            preferredColumns={config.columns}
+            onView={undefined}
+            onEdit={(row) => setDrawer({ mode: 'edit', row })}
+            actions={config.actions?.map((action, actionIndex) => ({
+              label: action.label,
+              tone: action.tone,
+              onClick: (row) => actionMutation.mutate({ row, actionIndex }),
+            }))}
+          />
+        </div>
+      </aside>
+      {drawer ? (
+        <ResourceDrawer
+          config={config}
+          mode={drawer.mode}
+          row={drawer.row}
+          saving={saveFeature.isPending}
+          onClose={() => setDrawer(undefined)}
+          onSubmit={(values) => saveFeature.mutate(values)}
+        />
+      ) : null}
+    </div>
+  );
+}
+
+function PlanFeaturesDrawer({
+  plan,
+  context,
+  onClose,
+}: {
+  plan: Record<string, unknown>;
+  context?: { appId?: string; tenantId?: string | null };
+  onClose(): void;
+}) {
+  const queryClient = useQueryClient();
+  const planId = String(plan.id);
+  const [values, setValues] = useState<Record<string, string>>({
+    featureId: '',
+    enabled: 'true',
+    quotaType: 'count',
+    quotaLimit: '',
+    resetCycle: 'monthly',
+  });
+  const [message, setMessage] = useState<string>();
+  const features = useQuery({
+    queryKey: ['plan-feature-options'],
+    queryFn: () =>
+      listResource<Record<string, unknown>>('/admin/v1/features', context, {
+        status: 'active',
+      }),
+  });
+  const planFeatures = useQuery({
+    queryKey: ['plan-features', planId, context],
+    queryFn: () => listResource<Record<string, unknown>>(`/admin/v1/plans/${planId}/features`, context),
+  });
+  const attachFeature = useMutation({
+    mutationFn: () =>
+      createResource(
+        `/admin/v1/plans/${planId}/features`,
+        {
+          featureId: values.featureId,
+          enabled: values.enabled === 'true',
+          quotaType: values.quotaType || undefined,
+          quotaLimit: values.quotaLimit ? Number(values.quotaLimit) : undefined,
+          resetCycle: values.resetCycle || undefined,
+        },
+        context,
+      ),
+    onSuccess: async () => {
+      setMessage('套餐功能配置已保存');
+      setValues({
+        featureId: '',
+        enabled: 'true',
+        quotaType: 'count',
+        quotaLimit: '',
+        resetCycle: 'monthly',
+      });
+      await queryClient.invalidateQueries({ queryKey: ['plan-features', planId] });
+    },
+  });
+  const rows = (planFeatures.data ?? []).map((item) => {
+    const feature = item.feature as Record<string, unknown> | undefined;
+    return {
+      ...item,
+      featureKey: feature?.featureKey,
+      featureName: feature?.name,
+    };
+  });
+
+  return (
+    <div className="drawer-backdrop">
+      <aside className="drawer-panel wide-drawer">
+        <div className="drawer-header">
+          <div>
+            <h2>套餐功能配置</h2>
+            <p>{String(plan.name ?? planId)}</p>
+          </div>
+          <button className="icon-button" onClick={onClose} type="button">
+            ×
+          </button>
+        </div>
+        <div className="members-content">
+          {message ? (
+            <div className="success-banner">
+              <span>{message}</span>
+              <button type="button" onClick={() => setMessage(undefined)}>
+                关闭
+              </button>
+            </div>
+          ) : null}
+          {attachFeature.error ? <ErrorBanner error={attachFeature.error} /> : null}
+          <form
+            className="inline-form plan-feature-form"
+            onSubmit={(event) => {
+              event.preventDefault();
+              attachFeature.mutate();
+            }}
+          >
+            <label>
+              功能项
+              <select
+                required
+                value={values.featureId}
+                onChange={(event) => setValues({ ...values, featureId: event.target.value })}
+              >
+                <option value="">请选择</option>
+                {(features.data ?? []).map((feature) => (
+                  <option key={String(feature.id)} value={String(feature.id)}>
+                    {String(feature.name ?? feature.featureKey)}
+                  </option>
+                ))}
+              </select>
+            </label>
+            <label>
+              启用
+              <select
+                value={values.enabled}
+                onChange={(event) => setValues({ ...values, enabled: event.target.value })}
+              >
+                <option value="true">启用</option>
+                <option value="false">停用</option>
+              </select>
+            </label>
+            <label>
+              额度类型
+              <input
+                value={values.quotaType}
+                onChange={(event) => setValues({ ...values, quotaType: event.target.value })}
+                placeholder="count"
+              />
+            </label>
+            <label>
+              额度上限
+              <input
+                min="0"
+                type="number"
+                value={values.quotaLimit}
+                onChange={(event) => setValues({ ...values, quotaLimit: event.target.value })}
+              />
+            </label>
+            <label>
+              重置周期
+              <input
+                value={values.resetCycle}
+                onChange={(event) => setValues({ ...values, resetCycle: event.target.value })}
+                placeholder="monthly"
+              />
+            </label>
+            <button className="primary-button" type="submit" disabled={attachFeature.isPending}>
+              {attachFeature.isPending ? '保存中' : '保存配置'}
+            </button>
+          </form>
+          {planFeatures.error ? <ErrorBanner error={planFeatures.error} /> : null}
+          <DataTable
+            rows={rows}
+            loading={planFeatures.isLoading}
+            preferredColumns={['featureKey', 'featureName', 'enabled', 'quotaType', 'quotaLimit', 'resetCycle']}
+            onEdit={(row) =>
+              setValues({
+                featureId: String(row.featureId ?? ''),
+                enabled: row.enabled === false ? 'false' : 'true',
+                quotaType: String(row.quotaType ?? ''),
+                quotaLimit: row.quotaLimit === undefined || row.quotaLimit === null ? '' : String(row.quotaLimit),
+                resetCycle: String(row.resetCycle ?? ''),
+              })
+            }
+          />
         </div>
       </aside>
     </div>
@@ -1428,7 +1832,9 @@ function TenantOperationsDrawer({
 function initialValues(config: ResourceConfig, row?: Record<string, unknown>) {
   const values: Record<string, string> = {};
   for (const field of config.fields) {
-    if (field.key === 'valueText') {
+    if (!row && field.defaultValue !== undefined) {
+      values[field.key] = field.defaultValue;
+    } else if (field.key === 'valueText') {
       values[field.key] = row?.value ? JSON.stringify(row.value, null, 2) : '';
     } else if (field.key === 'configText') {
       values[field.key] = row?.config ? JSON.stringify(row.config, null, 2) : '';
@@ -1481,6 +1887,7 @@ function formatError(error: unknown) {
 
 function formatCell(value: unknown) {
   if (value === null || value === undefined) return '-';
+  if (typeof value === 'boolean') return value ? '是' : '否';
   if (typeof value === 'string' && [...statusOptions, ...tenantStatusOptions].some((option) => option.value === value)) {
     return statusLabel(value);
   }

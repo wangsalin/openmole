@@ -4,6 +4,7 @@ import {
   Get,
   Headers,
   Param,
+  Patch,
   Post,
   Query,
   UseGuards,
@@ -25,6 +26,8 @@ import {
   OpenSubscriptionDto,
   PaymentWebhookDto,
   StartOrderPaymentDto,
+  UpdateFeatureDto,
+  UpdatePlanDto,
 } from './dto/billing.dto';
 import { BillingService } from './billing.service';
 import { RateLimit } from '../../common/decorators/rate-limit.decorator';
@@ -48,6 +51,13 @@ export class BillingController {
   }
 
   @UseGuards(JwtAuthGuard, PermissionGuard)
+  @Patch('admin/v1/features/:id')
+  @RequirePermissions('billing.feature.update')
+  updateFeature(@Param('id') id: string, @Body() body: UpdateFeatureDto) {
+    return this.billing.updateFeature(id, body);
+  }
+
+  @UseGuards(JwtAuthGuard, PermissionGuard)
   @Get('admin/v1/plans')
   @RequirePermissions('billing.plan.read')
   plans(
@@ -60,8 +70,22 @@ export class BillingController {
   @UseGuards(JwtAuthGuard, PermissionGuard)
   @Post('admin/v1/plans')
   @RequirePermissions('billing.plan.create')
-  createPlan(@Body() body: CreatePlanDto) {
-    return this.billing.createPlan(body);
+  createPlan(
+    @Body() body: CreatePlanDto,
+    @CurrentTenantContext() tenantContext: TenantContext,
+  ) {
+    return this.billing.createPlan(body, tenantContext);
+  }
+
+  @UseGuards(JwtAuthGuard, PermissionGuard)
+  @Patch('admin/v1/plans/:id')
+  @RequirePermissions('billing.plan.update')
+  updatePlan(
+    @Param('id') id: string,
+    @Body() body: UpdatePlanDto,
+    @CurrentTenantContext() tenantContext: TenantContext,
+  ) {
+    return this.billing.updatePlan(id, body, tenantContext);
   }
 
   @UseGuards(JwtAuthGuard, PermissionGuard)

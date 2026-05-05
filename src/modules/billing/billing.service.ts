@@ -27,6 +27,8 @@ import {
   OpenSubscriptionDto,
   PaymentWebhookDto,
   StartOrderPaymentDto,
+  UpdateFeatureDto,
+  UpdatePlanDto,
 } from './dto/billing.dto';
 
 @Injectable()
@@ -48,7 +50,15 @@ export class BillingService {
   }
 
   createFeature(body: CreateFeatureDto) {
-    return this.prisma.feature.create({ data: body });
+    return this.prisma.feature.create({ data: body as never });
+  }
+
+  async updateFeature(id: string, body: UpdateFeatureDto) {
+    await this.ensureFeature(id);
+    return this.prisma.feature.update({
+      where: { id },
+      data: body as never,
+    });
   }
 
   plans(query: ListPlansDto, tenantContext?: TenantContext) {
@@ -62,8 +72,33 @@ export class BillingService {
     });
   }
 
-  createPlan(body: CreatePlanDto) {
+  createPlan(body: CreatePlanDto, tenantContext?: TenantContext) {
+    assertTenantScopedAccess(
+      { appId: body.appId, tenantId: undefined },
+      tenantContext,
+      'Plan is outside tenant context',
+    );
     return this.prisma.plan.create({ data: body as never });
+  }
+
+  async updatePlan(id: string, body: UpdatePlanDto, tenantContext?: TenantContext) {
+    const plan = await this.ensurePlan(id);
+    assertTenantScopedAccess(
+      { appId: plan.appId, tenantId: undefined },
+      tenantContext,
+      'Plan is outside tenant context',
+    );
+    if (body.appId && body.appId !== plan.appId) {
+      assertTenantScopedAccess(
+        { appId: body.appId, tenantId: undefined },
+        tenantContext,
+        'Plan target app is outside tenant context',
+      );
+    }
+    return this.prisma.plan.update({
+      where: { id },
+      data: body as never,
+    });
   }
 
   async planFeatures(planId: string, tenantContext?: TenantContext) {

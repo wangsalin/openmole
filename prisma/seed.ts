@@ -94,6 +94,7 @@ async function main() {
     ['system.dict.create', 'Dict Create', 'system', 'create'],
     ['billing.feature.read', 'Feature Read', 'billing', 'read'],
     ['billing.feature.create', 'Feature Create', 'billing', 'create'],
+    ['billing.feature.update', 'Feature Update', 'billing', 'update'],
     ['billing.plan.read', 'Plan Read', 'billing', 'read'],
     ['billing.plan.create', 'Plan Create', 'billing', 'create'],
     ['billing.plan.update', 'Plan Update', 'billing', 'update'],
