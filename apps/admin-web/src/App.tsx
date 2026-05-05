@@ -18,8 +18,19 @@ import {
 } from 'lucide-react';
 import { FormEvent, ReactNode, useMemo, useState } from 'react';
 import { NavLink, Route, Routes, useNavigate } from 'react-router-dom';
-import { useQuery } from '@tanstack/react-query';
-import { ApiError, getDashboard, listResource, loadContexts, loadMenus, login, logout } from './api';
+import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
+import {
+  ApiError,
+  createResource,
+  getDashboard,
+  listResource,
+  loadContexts,
+  loadMenus,
+  login,
+  logout,
+  runResourceAction,
+  updateResource,
+} from './api';
 import { useAuth } from './AuthContext';
 import { ContextOption } from './types';
 
@@ -64,6 +75,108 @@ const columnLabels: Record<string, string> = {
   title: '标题',
   action: '操作',
   resource: '资源',
+};
+
+interface FieldConfig {
+  key: string;
+  label: string;
+  required?: boolean;
+  type?: 'text' | 'select' | 'textarea';
+  options?: Array<{ label: string; value: string }>;
+  placeholder?: string;
+}
+
+interface ResourceConfig {
+  endpoint: string;
+  fields: FieldConfig[];
+  createTitle: string;
+  editTitle: string;
+  transform?(values: Record<string, string>, mode: 'create' | 'edit'): Record<string, unknown>;
+  actions?: Array<{
+    label: string;
+    tone?: 'danger' | 'primary';
+    run(row: Record<string, unknown>, context?: { appId?: string; tenantId?: string | null }): Promise<unknown>;
+  }>;
+}
+
+const statusOptions = [
+  { label: '启用', value: 'active' },
+  { label: '停用', value: 'disabled' },
+  { label: '未启用', value: 'inactive' },
+  { label: '归档', value: 'archived' },
+];
+
+const tenantStatusOptions = [
+  { label: '待审核', value: 'pending_review' },
+  { label: '启用', value: 'active' },
+  { label: '驳回', value: 'rejected' },
+  { label: '停用', value: 'disabled' },
+  { label: '逾期', value: 'overdue' },
+  { label: '过期', value: 'expired' },
+];
+
+const resourceConfigs: Record<string, ResourceConfig> = {
+  '/admin/v1/apps': {
+    endpoint: '/admin/v1/apps',
+    createTitle: '新建应用',
+    editTitle: '编辑应用',
+    fields: [
+      { key: 'name', label: '应用名称', required: true },
+      { key: 'appKey', label: '应用标识', required: true, placeholder: 'lowercase_key' },
+      { key: 'appType', label: '应用类型', required: true, placeholder: 'saas' },
+      { key: 'domain', label: '域名' },
+      { key: 'status', label: '状态', type: 'select', options: statusOptions },
+    ],
+    actions: [
+      {
+        label: '禁用',
+        tone: 'danger',
+        run: (row, context) => runResourceAction(`/admin/v1/apps/${String(row.id)}/disable`, context),
+      },
+    ],
+  },
+  '/admin/v1/tenants': {
+    endpoint: '/admin/v1/tenants',
+    createTitle: '新建租户',
+    editTitle: '编辑租户',
+    fields: [
+      { key: 'appId', label: '应用 ID', required: true },
+      { key: 'name', label: '租户名称', required: true },
+      { key: 'tenantType', label: '租户类型', placeholder: 'customer' },
+      { key: 'contactName', label: '联系人' },
+      { key: 'email', label: '联系邮箱' },
+      { key: 'status', label: '状态', type: 'select', options: tenantStatusOptions },
+    ],
+    actions: [
+      {
+        label: '审核通过',
+        tone: 'primary',
+        run: (row, context) => runResourceAction(`/admin/v1/tenants/${String(row.id)}/approve`, context),
+      },
+      {
+        label: '禁用',
+        tone: 'danger',
+        run: (row, context) => runResourceAction(`/admin/v1/tenants/${String(row.id)}/disable`, context),
+      },
+    ],
+  },
+  '/admin/v1/system/settings': {
+    endpoint: '/admin/v1/system/settings',
+    createTitle: '保存设置',
+    editTitle: '编辑设置',
+    fields: [
+      { key: 'key', label: '配置键', required: true },
+      { key: 'scope', label: '作用域', placeholder: 'system' },
+      { key: 'valueText', label: 'JSON 值', required: true, type: 'textarea', placeholder: '{"enabled":true}' },
+    ],
+    transform(values) {
+      return {
+        key: values.key,
+        scope: values.scope || 'system',
+        value: values.valueText ? JSON.parse(values.valueText) : {},
+      };
+    },
+  },
 };
 
 const errorMessages: Record<string, string> = {
@@ -279,17 +392,79 @@ function Overview() {
 
 function ResourcePage({ title, endpoint }: { title: string; endpoint: string }) {
   const auth = useAuth();
+  const queryClient = useQueryClient();
+  const config = resourceConfigs[endpoint];
+  const [drawer, setDrawer] = useState<{
+    mode: 'create' | 'edit';
+    row?: Record<string, unknown>;
+  }>();
   const query = useQuery({
     queryKey: ['resource', endpoint, auth.activeContext],
     queryFn: () => listResource<Record<string, unknown>>(endpoint, auth.activeContext),
   });
+  const saveMutation = useMutation({
+    mutationFn: (values: Record<string, string>) => {
+      if (!config) throw new Error('Unsupported resource');
+      const payload = config.transform
+        ? config.transform(values, drawer?.mode ?? 'create')
+        : compactValues(values);
+      if (drawer?.mode === 'edit' && drawer.row?.id && endpoint !== '/admin/v1/system/settings') {
+        return updateResource(`${endpoint}/${String(drawer.row.id)}`, payload, auth.activeContext);
+      }
+      return createResource(endpoint, payload, auth.activeContext);
+    },
+    onSuccess: async () => {
+      setDrawer(undefined);
+      await queryClient.invalidateQueries({ queryKey: ['resource', endpoint] });
+    },
+  });
+  const actionMutation = useMutation({
+    mutationFn: (input: { row: Record<string, unknown>; actionIndex: number }) => {
+      const action = config?.actions?.[input.actionIndex];
+      if (!action) throw new Error('Unsupported action');
+      return action.run(input.row, auth.activeContext);
+    },
+    onSuccess: async () => {
+      await queryClient.invalidateQueries({ queryKey: ['resource', endpoint] });
+    },
+  });
 
   return (
-    <Page title={title} right={<button className="secondary-button">新建</button>}>
+    <Page
+      title={title}
+      right={
+        config ? (
+          <button className="secondary-button" onClick={() => setDrawer({ mode: 'create' })}>
+            新建
+          </button>
+        ) : undefined
+      }
+    >
       <section className="panel">
         {query.error ? <ErrorBanner error={query.error} /> : null}
-        <DataTable rows={query.data ?? []} loading={query.isLoading} />
+        {saveMutation.error ? <ErrorBanner error={saveMutation.error} /> : null}
+        {actionMutation.error ? <ErrorBanner error={actionMutation.error} /> : null}
+        <DataTable
+          rows={query.data ?? []}
+          loading={query.isLoading}
+          onEdit={config ? (row) => setDrawer({ mode: 'edit', row }) : undefined}
+          actions={config?.actions?.map((action, actionIndex) => ({
+            label: action.label,
+            tone: action.tone,
+            onClick: (row) => actionMutation.mutate({ row, actionIndex }),
+          }))}
+        />
       </section>
+      {config && drawer ? (
+        <ResourceDrawer
+          config={config}
+          mode={drawer.mode}
+          row={drawer.row}
+          saving={saveMutation.isPending}
+          onClose={() => setDrawer(undefined)}
+          onSubmit={(values) => saveMutation.mutate(values)}
+        />
+      ) : null}
     </Page>
   );
 }
@@ -309,7 +484,21 @@ function Page({ title, right, children }: { title: string; right?: ReactNode; ch
   );
 }
 
-function DataTable({ rows, loading }: { rows: Record<string, unknown>[]; loading: boolean }) {
+function DataTable({
+  rows,
+  loading,
+  onEdit,
+  actions,
+}: {
+  rows: Record<string, unknown>[];
+  loading: boolean;
+  onEdit?: (row: Record<string, unknown>) => void;
+  actions?: Array<{
+    label: string;
+    tone?: 'danger' | 'primary';
+    onClick(row: Record<string, unknown>): void;
+  }>;
+}) {
   const columns = useMemo(() => {
     const keys = new Set<string>();
     rows.slice(0, 5).forEach((row) => Object.keys(row).slice(0, 6).forEach((key) => keys.add(key)));
@@ -327,6 +516,7 @@ function DataTable({ rows, loading }: { rows: Record<string, unknown>[]; loading
             {columns.map((column) => (
               <th key={column}>{columnLabels[column] ?? column}</th>
             ))}
+            {onEdit || actions?.length ? <th>操作</th> : null}
           </tr>
         </thead>
         <tbody>
@@ -335,11 +525,132 @@ function DataTable({ rows, loading }: { rows: Record<string, unknown>[]; loading
               {columns.map((column) => (
                 <td key={column}>{formatCell(row[column])}</td>
               ))}
+              {onEdit || actions?.length ? (
+                <td>
+                  <div className="table-actions">
+                    {onEdit ? (
+                      <button type="button" onClick={() => onEdit(row)}>
+                        编辑
+                      </button>
+                    ) : null}
+                    {actions?.map((action) => (
+                      <button
+                        type="button"
+                        className={action.tone === 'danger' ? 'danger-link' : undefined}
+                        key={action.label}
+                        onClick={() => action.onClick(row)}
+                      >
+                        {action.label}
+                      </button>
+                    ))}
+                  </div>
+                </td>
+              ) : null}
             </tr>
           ))}
         </tbody>
       </table>
     </div>
+  );
+}
+
+function ResourceDrawer({
+  config,
+  mode,
+  row,
+  saving,
+  onClose,
+  onSubmit,
+}: {
+  config: ResourceConfig;
+  mode: 'create' | 'edit';
+  row?: Record<string, unknown>;
+  saving: boolean;
+  onClose(): void;
+  onSubmit(values: Record<string, string>): void;
+}) {
+  const [values, setValues] = useState<Record<string, string>>(() => initialValues(config, row));
+
+  function submit(event: FormEvent) {
+    event.preventDefault();
+    onSubmit(values);
+  }
+
+  return (
+    <div className="drawer-backdrop">
+      <aside className="drawer-panel">
+        <div className="drawer-header">
+          <div>
+            <h2>{mode === 'create' ? config.createTitle : config.editTitle}</h2>
+            <p>填写必要信息后保存</p>
+          </div>
+          <button className="icon-button" onClick={onClose} type="button">
+            ×
+          </button>
+        </div>
+        <form className="drawer-form" onSubmit={submit}>
+          {config.fields.map((field) => (
+            <label key={field.key}>
+              {field.label}
+              {field.type === 'select' ? (
+                <select
+                  required={field.required}
+                  value={values[field.key] ?? ''}
+                  onChange={(event) => setValues({ ...values, [field.key]: event.target.value })}
+                >
+                  <option value="">请选择</option>
+                  {field.options?.map((option) => (
+                    <option key={option.value} value={option.value}>
+                      {option.label}
+                    </option>
+                  ))}
+                </select>
+              ) : field.type === 'textarea' ? (
+                <textarea
+                  required={field.required}
+                  placeholder={field.placeholder}
+                  value={values[field.key] ?? ''}
+                  onChange={(event) => setValues({ ...values, [field.key]: event.target.value })}
+                />
+              ) : (
+                <input
+                  required={field.required}
+                  placeholder={field.placeholder}
+                  value={values[field.key] ?? ''}
+                  onChange={(event) => setValues({ ...values, [field.key]: event.target.value })}
+                />
+              )}
+            </label>
+          ))}
+          <div className="drawer-actions">
+            <button type="button" className="ghost-button" onClick={onClose}>
+              取消
+            </button>
+            <button type="submit" className="primary-button" disabled={saving}>
+              {saving ? '保存中' : '保存'}
+            </button>
+          </div>
+        </form>
+      </aside>
+    </div>
+  );
+}
+
+function initialValues(config: ResourceConfig, row?: Record<string, unknown>) {
+  const values: Record<string, string> = {};
+  for (const field of config.fields) {
+    if (field.key === 'valueText') {
+      values[field.key] = row?.value ? JSON.stringify(row.value, null, 2) : '';
+    } else {
+      values[field.key] = row?.[field.key] === undefined ? '' : String(row[field.key] ?? '');
+    }
+  }
+  return values;
+}
+
+function compactValues(values: Record<string, string>) {
+  return Object.fromEntries(
+    Object.entries(values).filter(([, value]) => value !== ''),
   );
 }
 

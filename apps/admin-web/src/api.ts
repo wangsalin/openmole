@@ -102,6 +102,40 @@ export function listResource<T>(path: string, context?: { appId?: string; tenant
   return apiRequest<T[]>(path, { context });
 }
 
+export function createResource<T>(
+  path: string,
+  payload: Record<string, unknown>,
+  context?: { appId?: string; tenantId?: string | null },
+) {
+  return apiRequest<T>(path, {
+    method: 'POST',
+    body: JSON.stringify(payload),
+    context,
+  });
+}
+
+export function updateResource<T>(
+  path: string,
+  payload: Record<string, unknown>,
+  context?: { appId?: string; tenantId?: string | null },
+) {
+  return apiRequest<T>(path, {
+    method: 'PATCH',
+    body: JSON.stringify(payload),
+    context,
+  });
+}
+
+export function runResourceAction<T>(
+  path: string,
+  context?: { appId?: string; tenantId?: string | null },
+) {
+  return apiRequest<T>(path, {
+    method: 'POST',
+    context,
+  });
+}
+
 export function getDashboard(context?: { appId?: string; tenantId?: string | null }) {
   return apiRequest<Record<string, number>>('/admin/v1/dashboard/summary', { context });
 }

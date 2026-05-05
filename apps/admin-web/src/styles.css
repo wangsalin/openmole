@@ -106,6 +106,7 @@ select {
 
 .primary-button,
 .secondary-button,
+.ghost-button,
 .icon-button {
   border: 0;
   cursor: pointer;
@@ -131,6 +132,16 @@ select {
   padding: 0 14px;
   background: #263547;
   color: #ffffff;
+}
+
+.ghost-button {
+  min-height: 40px;
+  padding: 0 14px;
+  border-radius: 6px;
+  border: 1px solid #cbd5e1;
+  background: #ffffff;
+  color: #263547;
+  font-weight: 800;
 }
 
 .primary-button:disabled {
@@ -393,6 +404,25 @@ td {
   white-space: nowrap;
 }
 
+.table-actions {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.table-actions button {
+  border: 0;
+  background: transparent;
+  color: #1f6f6b;
+  cursor: pointer;
+  font-weight: 800;
+  padding: 0;
+}
+
+.table-actions .danger-link {
+  color: #b42318;
+}
+
 th {
   color: #526174;
   background: #f7f9fc;
@@ -404,6 +434,94 @@ th {
   display: grid;
   place-items: center;
   color: #677385;
+}
+
+.drawer-backdrop {
+  position: fixed;
+  inset: 0;
+  z-index: 20;
+  display: flex;
+  justify-content: flex-end;
+  background: rgba(15, 23, 34, 0.42);
+}
+
+.drawer-panel {
+  width: min(460px, 100vw);
+  min-height: 100vh;
+  background: #ffffff;
+  border-left: 1px solid #d7dee8;
+  box-shadow: -18px 0 42px rgba(15, 23, 34, 0.18);
+  display: grid;
+  grid-template-rows: auto minmax(0, 1fr);
+}
+
+.drawer-header {
+  min-height: 72px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+  padding: 18px;
+  border-bottom: 1px solid #e2e8f0;
+}
+
+.drawer-header h2 {
+  margin: 0;
+  font-size: 18px;
+}
+
+.drawer-header p {
+  margin: 4px 0 0;
+  color: #677385;
+  font-size: 13px;
+}
+
+.drawer-form {
+  display: grid;
+  align-content: start;
+  gap: 14px;
+  padding: 18px;
+  overflow: auto;
+}
+
+.drawer-form label {
+  display: grid;
+  gap: 7px;
+  color: #344154;
+  font-size: 13px;
+  font-weight: 800;
+}
+
+.drawer-form input,
+.drawer-form select,
+.drawer-form textarea {
+  width: 100%;
+  border: 1px solid #cbd5e1;
+  border-radius: 6px;
+  color: #18212f;
+  background: #ffffff;
+  outline: none;
+}
+
+.drawer-form input,
+.drawer-form select {
+  min-height: 40px;
+  padding: 0 10px;
+}
+
+.drawer-form textarea {
+  min-height: 132px;
+  resize: vertical;
+  padding: 10px;
+  font-family:
+    "JetBrains Mono", "SFMono-Regular", Consolas, ui-monospace, monospace;
+}
+
+.drawer-actions {
+  display: flex;
+  justify-content: flex-end;
+  gap: 10px;
+  margin-top: 8px;
 }
 
 @media (max-width: 920px) {
