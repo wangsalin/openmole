@@ -568,6 +568,22 @@ th {
     "JetBrains Mono", "SFMono-Regular", Consolas, ui-monospace, monospace;
 }
 
+.checkbox-row {
+  min-height: 40px;
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  color: #344154;
+  font-weight: 700;
+}
+
+.checkbox-row input {
+  width: 16px;
+  min-height: 16px;
+  height: 16px;
+  padding: 0;
+}
+
 .drawer-actions {
   display: flex;
   justify-content: flex-end;

@@ -81,7 +81,7 @@ interface FieldConfig {
   key: string;
   label: string;
   required?: boolean;
-  type?: 'text' | 'select' | 'textarea';
+  type?: 'text' | 'select' | 'textarea' | 'checkbox' | 'password';
   options?: Array<{ label: string; value: string }>;
   placeholder?: string;
 }
@@ -158,7 +158,7 @@ const resourceConfigs: Record<string, ResourceConfig> = {
   },
   '/admin/v1/tenants': {
     endpoint: '/admin/v1/tenants',
-    columns: ['name', 'appId', 'tenantType', 'contactName', 'email', 'status', 'createdAt'],
+    columns: ['name', 'appId', 'tenantType', 'contactName', 'email', 'industry', 'region', 'status', 'createdAt'],
     filters: [
       { key: 'appId', label: '应用 ID' },
       { key: 'status', label: '状态', type: 'select', options: tenantStatusOptions },
@@ -170,14 +170,53 @@ const resourceConfigs: Record<string, ResourceConfig> = {
       { key: 'name', label: '租户名称', required: true },
       { key: 'tenantType', label: '租户类型', placeholder: 'customer' },
       { key: 'contactName', label: '联系人' },
+      { key: 'phone', label: '联系电话' },
       { key: 'email', label: '联系邮箱' },
+      { key: 'industry', label: '行业' },
+      { key: 'region', label: '地区' },
+      { key: 'source', label: '来源' },
       { key: 'status', label: '状态', type: 'select', options: tenantStatusOptions },
+      { key: 'initializeRoles', label: '初始化租户角色', type: 'checkbox' },
+      { key: 'ownerEmail', label: 'Owner 邮箱' },
+      { key: 'ownerDisplayName', label: 'Owner 姓名' },
+      { key: 'ownerPassword', label: 'Owner 初始密码', type: 'password' },
+      { key: 'remark', label: '备注', type: 'textarea' },
     ],
+    transform(values, mode) {
+      const payload: Record<string, unknown> = {
+        appId: values.appId,
+        name: values.name,
+        tenantType: values.tenantType || undefined,
+        contactName: values.contactName || undefined,
+        phone: values.phone || undefined,
+        email: values.email || undefined,
+        industry: values.industry || undefined,
+        region: values.region || undefined,
+        source: values.source || undefined,
+        status: values.status || undefined,
+        remark: values.remark || undefined,
+      };
+      if (mode === 'create') {
+        payload.initializeRoles = values.initializeRoles === 'true';
+        const owner = {
+          email: values.ownerEmail || undefined,
+          displayName: values.ownerDisplayName || undefined,
+          password: values.ownerPassword || undefined,
+        };
+        if (Object.values(owner).some(Boolean)) payload.owner = owner;
+      }
+      return payload;
+    },
     actions: [
       {
         label: '审核通过',
         tone: 'primary',
         run: (row, context) => runResourceAction(`/admin/v1/tenants/${String(row.id)}/approve`, context),
+      },
+      {
+        label: '初始化角色',
+        tone: 'primary',
+        run: (row, context) => runResourceAction(`/admin/v1/tenants/${String(row.id)}/initialize-roles`, context),
       },
       {
         label: '禁用',
@@ -719,8 +758,18 @@ function ResourceDrawer({
                   value={values[field.key] ?? ''}
                   onChange={(event) => setValues({ ...values, [field.key]: event.target.value })}
                 />
+              ) : field.type === 'checkbox' ? (
+                <span className="checkbox-row">
+                  <input
+                    type="checkbox"
+                    checked={values[field.key] === 'true'}
+                    onChange={(event) => setValues({ ...values, [field.key]: String(event.target.checked) })}
+                  />
+                  <span>启用</span>
+                </span>
               ) : (
                 <input
+                  type={field.type === 'password' ? 'password' : 'text'}
                   required={field.required}
                   placeholder={field.placeholder}
                   value={values[field.key] ?? ''}
@@ -785,6 +834,8 @@ function initialValues(config: ResourceConfig, row?: Record<string, unknown>) {
       values[field.key] = row?.value ? JSON.stringify(row.value, null, 2) : '';
     } else if (field.key === 'configText') {
       values[field.key] = row?.config ? JSON.stringify(row.config, null, 2) : '';
+    } else if (field.type === 'checkbox') {
+      values[field.key] = row?.[field.key] ? 'true' : '';
     } else {
       values[field.key] = row?.[field.key] === undefined ? '' : String(row[field.key] ?? '');
     }
@@ -820,6 +871,10 @@ function ErrorBanner({ error }: { error: unknown }) {
 }
 
 function formatError(error: unknown) {
+  if (error instanceof SyntaxError) return 'JSON 格式不正确，请检查配置内容';
+  if (error instanceof Error && error.message === 'JSON_PARSE_FAILED') {
+    return 'JSON 格式不正确，请检查配置内容';
+  }
   if (!(error instanceof ApiError)) return '请求失败';
   const code = error.body?.code;
   const message = code ? errorMessages[code] : undefined;
