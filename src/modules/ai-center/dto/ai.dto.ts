@@ -37,6 +37,36 @@ export class CreateAiProviderDto {
   @IsOptional()
   @IsObject()
   config?: Record<string, unknown>;
+
+  @IsOptional()
+  @IsIn(commonStatuses)
+  status?: string;
+}
+
+export class UpdateAiProviderDto {
+  @IsOptional()
+  @IsString()
+  providerKey?: string;
+
+  @IsOptional()
+  @IsString()
+  name?: string;
+
+  @IsOptional()
+  @IsUrl({ require_tld: false })
+  baseUrl?: string;
+
+  @IsOptional()
+  @IsString()
+  secretRef?: string;
+
+  @IsOptional()
+  @IsObject()
+  config?: Record<string, unknown>;
+
+  @IsOptional()
+  @IsIn(commonStatuses)
+  status?: string;
 }
 
 export class ListAiModelsDto extends PaginationDto {
@@ -82,6 +112,66 @@ export class CreateAiModelDto {
   @IsOptional()
   @IsObject()
   config?: Record<string, unknown>;
+
+  @IsOptional()
+  @IsIn(commonStatuses)
+  status?: string;
+}
+
+export class UpdateAiModelDto {
+  @IsOptional()
+  @IsString()
+  providerId?: string;
+
+  @IsOptional()
+  @IsString()
+  modelKey?: string;
+
+  @IsOptional()
+  @IsString()
+  name?: string;
+
+  @IsOptional()
+  @IsString()
+  modality?: string;
+
+  @IsOptional()
+  @Type(() => Number)
+  @IsNumber()
+  @Min(0)
+  inputTokenPrice?: number;
+
+  @IsOptional()
+  @Type(() => Number)
+  @IsNumber()
+  @Min(0)
+  outputTokenPrice?: number;
+
+  @IsOptional()
+  @IsObject()
+  config?: Record<string, unknown>;
+
+  @IsOptional()
+  @IsIn(commonStatuses)
+  status?: string;
+}
+
+export class ListAiRoutesDto extends PaginationDto {
+  @IsOptional()
+  @IsString()
+  appId?: string;
+
+  @IsOptional()
+  @IsString()
+  tenantId?: string;
+
+  @IsOptional()
+  @IsString()
+  routeKey?: string;
+
+  @IsOptional()
+  @IsIn(commonStatuses)
+  status?: string;
 }
 
 export class CreateAiRouteDto {
@@ -106,6 +196,40 @@ export class CreateAiRouteDto {
   @IsOptional()
   @IsObject()
   config?: Record<string, unknown>;
+
+  @IsOptional()
+  @IsIn(commonStatuses)
+  status?: string;
+}
+
+export class UpdateAiRouteDto {
+  @IsOptional()
+  @IsString()
+  appId?: string;
+
+  @IsOptional()
+  @IsString()
+  tenantId?: string;
+
+  @IsOptional()
+  @IsString()
+  routeKey?: string;
+
+  @IsOptional()
+  @IsString()
+  primaryModelId?: string;
+
+  @IsOptional()
+  @IsString()
+  fallbackModelId?: string;
+
+  @IsOptional()
+  @IsObject()
+  config?: Record<string, unknown>;
+
+  @IsOptional()
+  @IsIn(commonStatuses)
+  status?: string;
 }
 
 export class ListAiCallLogsDto extends PaginationDto {

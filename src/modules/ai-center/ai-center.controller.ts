@@ -3,6 +3,7 @@ import {
   Controller,
   Get,
   Param,
+  Patch,
   Post,
   Query,
   Req,
@@ -27,8 +28,12 @@ import {
   ListAiCallLogsDto,
   ListAiModelsDto,
   ListAiProvidersDto,
+  ListAiRoutesDto,
   ListPromptsDto,
   PublishPromptDto,
+  UpdateAiModelDto,
+  UpdateAiProviderDto,
+  UpdateAiRouteDto,
 } from './dto/ai.dto';
 import { OpenAiRequestDto } from './dto/open-ai.dto';
 
@@ -48,6 +53,13 @@ export class AiCenterController {
   @RequirePermissions('ai.provider.create')
   createProvider(@Body() body: CreateAiProviderDto) {
     return this.ai.createProvider(body);
+  }
+
+  @UseGuards(JwtAuthGuard, PermissionGuard)
+  @Patch('admin/v1/ai/providers/:id')
+  @RequirePermissions('ai.provider.update')
+  updateProvider(@Param('id') id: string, @Body() body: UpdateAiProviderDto) {
+    return this.ai.updateProvider(id, body);
   }
 
   @UseGuards(JwtAuthGuard, PermissionGuard)
@@ -72,6 +84,23 @@ export class AiCenterController {
   }
 
   @UseGuards(JwtAuthGuard, PermissionGuard)
+  @Patch('admin/v1/ai/models/:id')
+  @RequirePermissions('ai.model.update')
+  updateModel(@Param('id') id: string, @Body() body: UpdateAiModelDto) {
+    return this.ai.updateModel(id, body);
+  }
+
+  @UseGuards(JwtAuthGuard, PermissionGuard)
+  @Get('admin/v1/ai/routes')
+  @RequirePermissions('ai.route.read')
+  routes(
+    @Query() query: ListAiRoutesDto,
+    @CurrentTenantContext() tenantContext: TenantContext,
+  ) {
+    return this.ai.routes(query, tenantContext);
+  }
+
+  @UseGuards(JwtAuthGuard, PermissionGuard)
   @Post('admin/v1/ai/routes')
   @RequirePermissions('ai.route.create')
   createRoute(
@@ -79,6 +108,17 @@ export class AiCenterController {
     @CurrentTenantContext() tenantContext: TenantContext,
   ) {
     return this.ai.createRoute(body, tenantContext);
+  }
+
+  @UseGuards(JwtAuthGuard, PermissionGuard)
+  @Patch('admin/v1/ai/routes/:id')
+  @RequirePermissions('ai.route.update')
+  updateRoute(
+    @Param('id') id: string,
+    @Body() body: UpdateAiRouteDto,
+    @CurrentTenantContext() tenantContext: TenantContext,
+  ) {
+    return this.ai.updateRoute(id, body, tenantContext);
   }
 
   @UseGuards(JwtAuthGuard, PermissionGuard)

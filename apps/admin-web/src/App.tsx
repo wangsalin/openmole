@@ -109,6 +109,17 @@ const columnLabels: Record<string, string> = {
   quotaLimit: '额度上限',
   resetCycle: '重置周期',
   enabled: '启用',
+  providerKey: '提供商标识',
+  baseUrl: 'Base URL',
+  secretRef: '密钥引用',
+  providerId: '提供商 ID',
+  modelKey: '模型标识',
+  modality: '模态',
+  inputTokenPrice: '输入单价',
+  outputTokenPrice: '输出单价',
+  routeKey: '路由标识',
+  primaryModelId: '主模型',
+  fallbackModelId: '备用模型',
 };
 
 interface FieldConfig {
@@ -423,6 +434,140 @@ const resourceConfigs: Record<string, ResourceConfig> = {
       },
     ],
   },
+  '/admin/v1/ai/providers': {
+    endpoint: '/admin/v1/ai/providers',
+    columns: ['providerKey', 'name', 'baseUrl', 'secretRef', 'status', 'createdAt'],
+    filters: [
+      { key: 'status', label: '状态', type: 'select', options: statusOptions },
+    ],
+    createTitle: '新建 AI 提供商',
+    editTitle: '编辑 AI 提供商',
+    fields: [
+      { key: 'providerKey', label: '提供商标识', required: true, placeholder: 'deepseek' },
+      { key: 'name', label: '提供商名称', required: true },
+      { key: 'baseUrl', label: 'Base URL', placeholder: 'https://api.deepseek.com' },
+      { key: 'secretRef', label: '密钥引用', placeholder: 'secret://ai/deepseek' },
+      { key: 'status', label: '状态', type: 'select', options: statusOptions },
+      { key: 'configText', label: '配置 JSON', type: 'textarea', placeholder: '{"compatible":"openai"}' },
+    ],
+    transform(values) {
+      return {
+        providerKey: values.providerKey,
+        name: values.name,
+        baseUrl: values.baseUrl || undefined,
+        secretRef: values.secretRef || undefined,
+        status: values.status || undefined,
+        config: values.configText ? JSON.parse(values.configText) : undefined,
+      };
+    },
+    actions: [
+      {
+        label: '停用',
+        tone: 'danger',
+        run: (row, context) =>
+          updateResource(`/admin/v1/ai/providers/${String(row.id)}`, { status: 'disabled' }, context),
+      },
+      {
+        label: '启用',
+        tone: 'primary',
+        run: (row, context) =>
+          updateResource(`/admin/v1/ai/providers/${String(row.id)}`, { status: 'active' }, context),
+      },
+    ],
+  },
+  '/admin/v1/ai/models': {
+    endpoint: '/admin/v1/ai/models',
+    columns: ['modelKey', 'name', 'providerId', 'modality', 'inputTokenPrice', 'outputTokenPrice', 'status', 'createdAt'],
+    filters: [
+      { key: 'providerId', label: '提供商 ID' },
+      { key: 'modality', label: '模态', placeholder: 'text' },
+      { key: 'status', label: '状态', type: 'select', options: statusOptions },
+    ],
+    createTitle: '新建 AI 模型',
+    editTitle: '编辑 AI 模型',
+    fields: [
+      { key: 'providerId', label: '提供商', required: true },
+      { key: 'modelKey', label: '模型标识', required: true, placeholder: 'deepseek-chat' },
+      { key: 'name', label: '模型名称', required: true },
+      { key: 'modality', label: '模态', placeholder: 'text' },
+      { key: 'inputTokenPrice', label: '输入 token 单价', placeholder: '0' },
+      { key: 'outputTokenPrice', label: '输出 token 单价', placeholder: '0' },
+      { key: 'status', label: '状态', type: 'select', options: statusOptions },
+      { key: 'configText', label: '配置 JSON', type: 'textarea', placeholder: '{"maxTokens":8192}' },
+    ],
+    transform(values) {
+      return {
+        providerId: values.providerId,
+        modelKey: values.modelKey,
+        name: values.name,
+        modality: values.modality || undefined,
+        inputTokenPrice: values.inputTokenPrice ? Number(values.inputTokenPrice) : undefined,
+        outputTokenPrice: values.outputTokenPrice ? Number(values.outputTokenPrice) : undefined,
+        status: values.status || undefined,
+        config: values.configText ? JSON.parse(values.configText) : undefined,
+      };
+    },
+    actions: [
+      {
+        label: '停用',
+        tone: 'danger',
+        run: (row, context) =>
+          updateResource(`/admin/v1/ai/models/${String(row.id)}`, { status: 'disabled' }, context),
+      },
+      {
+        label: '启用',
+        tone: 'primary',
+        run: (row, context) =>
+          updateResource(`/admin/v1/ai/models/${String(row.id)}`, { status: 'active' }, context),
+      },
+    ],
+  },
+  '/admin/v1/ai/routes': {
+    endpoint: '/admin/v1/ai/routes',
+    columns: ['routeKey', 'appId', 'tenantId', 'primaryModelId', 'fallbackModelId', 'status', 'updatedAt'],
+    filters: [
+      { key: 'appId', label: '应用 ID' },
+      { key: 'tenantId', label: '租户 ID' },
+      { key: 'routeKey', label: '路由标识' },
+      { key: 'status', label: '状态', type: 'select', options: statusOptions },
+    ],
+    createTitle: '新建模型路由',
+    editTitle: '编辑模型路由',
+    fields: [
+      { key: 'appId', label: '应用 ID' },
+      { key: 'tenantId', label: '租户 ID' },
+      { key: 'routeKey', label: '路由标识', required: true, placeholder: 'chat' },
+      { key: 'primaryModelId', label: '主模型', required: true },
+      { key: 'fallbackModelId', label: '备用模型' },
+      { key: 'status', label: '状态', type: 'select', options: statusOptions },
+      { key: 'configText', label: '配置 JSON', type: 'textarea', placeholder: '{"temperature":0.7}' },
+    ],
+    transform(values) {
+      return {
+        appId: values.appId || undefined,
+        tenantId: values.tenantId || undefined,
+        routeKey: values.routeKey,
+        primaryModelId: values.primaryModelId,
+        fallbackModelId: values.fallbackModelId || undefined,
+        status: values.status || undefined,
+        config: values.configText ? JSON.parse(values.configText) : undefined,
+      };
+    },
+    actions: [
+      {
+        label: '停用',
+        tone: 'danger',
+        run: (row, context) =>
+          updateResource(`/admin/v1/ai/routes/${String(row.id)}`, { status: 'disabled' }, context),
+      },
+      {
+        label: '启用',
+        tone: 'primary',
+        run: (row, context) =>
+          updateResource(`/admin/v1/ai/routes/${String(row.id)}`, { status: 'active' }, context),
+      },
+    ],
+  },
   '/admin/v1/system/settings': {
     endpoint: '/admin/v1/system/settings',
     columns: ['key', 'scope', 'appId', 'tenantId', 'value', 'updatedAt'],
@@ -583,7 +728,13 @@ function AdminShell() {
                 <Route
                   key={item.path}
                   path={item.path}
-                  element={<ResourcePage title={item.label} endpoint={item.endpoint!} />}
+                  element={
+                    item.path === '/ai' ? (
+                      <AiCenterPage title={item.label} />
+                    ) : (
+                      <ResourcePage title={item.label} endpoint={item.endpoint!} />
+                    )
+                  }
                 />
               ))}
           </Routes>
@@ -654,6 +805,186 @@ function Overview() {
           <RuntimeItem label="知识检索" value="pgvector + 对象存储" />
         </div>
       </section>
+    </Page>
+  );
+}
+
+const aiTabs = [
+  { key: '/admin/v1/ai/providers', label: '提供商' },
+  { key: '/admin/v1/ai/models', label: '模型' },
+  { key: '/admin/v1/ai/routes', label: '路由' },
+] as const;
+
+function AiCenterPage({ title }: { title: string }) {
+  const auth = useAuth();
+  const queryClient = useQueryClient();
+  const [endpoint, setEndpoint] = useState<(typeof aiTabs)[number]['key']>('/admin/v1/ai/providers');
+  const [filtersByEndpoint, setFiltersByEndpoint] = useState<Record<string, Record<string, string>>>({});
+  const [drawer, setDrawer] = useState<{
+    mode: 'create' | 'edit';
+    row?: Record<string, unknown>;
+  }>();
+  const [detailRow, setDetailRow] = useState<Record<string, unknown>>();
+  const [toast, setToast] = useState<string>();
+  const providers = useQuery({
+    queryKey: ['ai-provider-options', auth.activeContext],
+    queryFn: () =>
+      listResource<Record<string, unknown>>('/admin/v1/ai/providers', auth.activeContext, {
+        status: 'active',
+      }),
+  });
+  const models = useQuery({
+    queryKey: ['ai-model-options', auth.activeContext],
+    queryFn: () =>
+      listResource<Record<string, unknown>>('/admin/v1/ai/models', auth.activeContext, {
+        status: 'active',
+      }),
+  });
+  const config = useMemo(() => {
+    const base = resourceConfigs[endpoint];
+    if (endpoint === '/admin/v1/ai/models') {
+      return {
+        ...base,
+        fields: base.fields.map((field) =>
+          field.key === 'providerId'
+            ? {
+                ...field,
+                type: 'select' as const,
+                options: (providers.data ?? []).map((provider) => ({
+                  label: String(provider.name ?? provider.providerKey ?? provider.id),
+                  value: String(provider.id),
+                })),
+              }
+            : field,
+        ),
+      };
+    }
+    if (endpoint === '/admin/v1/ai/routes') {
+      const modelOptions = (models.data ?? []).map((model) => ({
+        label: String(model.name ?? model.modelKey ?? model.id),
+        value: String(model.id),
+      }));
+      return {
+        ...base,
+        fields: base.fields.map((field) =>
+          field.key === 'primaryModelId' || field.key === 'fallbackModelId'
+            ? { ...field, type: 'select' as const, options: modelOptions }
+            : field,
+        ),
+      };
+    }
+    return base;
+  }, [endpoint, models.data, providers.data]);
+  const filters = filtersByEndpoint[endpoint] ?? {};
+  const query = useQuery({
+    queryKey: ['ai-resource', endpoint, auth.activeContext, filters],
+    queryFn: () => listResource<Record<string, unknown>>(endpoint, auth.activeContext, filters),
+  });
+  const saveMutation = useMutation({
+    mutationFn: (values: Record<string, string>) => {
+      const payload = config.transform
+        ? config.transform(values, drawer?.mode ?? 'create')
+        : compactValues(values);
+      if (drawer?.mode === 'edit' && drawer.row?.id) {
+        return updateResource(`${endpoint}/${String(drawer.row.id)}`, payload, auth.activeContext);
+      }
+      return createResource(endpoint, payload, auth.activeContext);
+    },
+    onSuccess: async () => {
+      setDrawer(undefined);
+      setToast(drawer?.mode === 'edit' ? '已保存修改' : '已创建记录');
+      await queryClient.invalidateQueries({ queryKey: ['ai-resource', endpoint] });
+      await queryClient.invalidateQueries({ queryKey: ['ai-provider-options'] });
+      await queryClient.invalidateQueries({ queryKey: ['ai-model-options'] });
+    },
+  });
+  const actionMutation = useMutation({
+    mutationFn: (input: { row: Record<string, unknown>; actionIndex: number }) => {
+      const action = config.actions?.[input.actionIndex];
+      if (!action) throw new Error('Unsupported action');
+      if (!window.confirm(`确认执行“${action.label}”？`)) return Promise.resolve(undefined);
+      return action.run(input.row, auth.activeContext);
+    },
+    onSuccess: async () => {
+      setToast('操作已完成');
+      await queryClient.invalidateQueries({ queryKey: ['ai-resource', endpoint] });
+      await queryClient.invalidateQueries({ queryKey: ['ai-provider-options'] });
+      await queryClient.invalidateQueries({ queryKey: ['ai-model-options'] });
+    },
+  });
+
+  return (
+    <Page
+      title={title}
+      right={
+        <button className="secondary-button" onClick={() => setDrawer({ mode: 'create' })}>
+          新建
+        </button>
+      }
+    >
+      <section className="panel">
+        <div className="tab-list" role="tablist" aria-label="AI 中心">
+          {aiTabs.map((tab) => (
+            <button
+              key={tab.key}
+              type="button"
+              role="tab"
+              aria-selected={endpoint === tab.key}
+              className={endpoint === tab.key ? 'tab-button active' : 'tab-button'}
+              onClick={() => {
+                setEndpoint(tab.key);
+                setDrawer(undefined);
+                setDetailRow(undefined);
+              }}
+            >
+              {tab.label}
+            </button>
+          ))}
+        </div>
+        {toast ? (
+          <div className="success-banner">
+            <span>{toast}</span>
+            <button type="button" onClick={() => setToast(undefined)}>
+              关闭
+            </button>
+          </div>
+        ) : null}
+        {config.filters?.length ? (
+          <FilterBar
+            fields={config.filters}
+            values={filters}
+            onChange={(values) => setFiltersByEndpoint({ ...filtersByEndpoint, [endpoint]: values })}
+          />
+        ) : null}
+        {query.error ? <ErrorBanner error={query.error} /> : null}
+        {saveMutation.error ? <ErrorBanner error={saveMutation.error} /> : null}
+        {actionMutation.error ? <ErrorBanner error={actionMutation.error} /> : null}
+        <DataTable
+          rows={query.data ?? []}
+          loading={query.isLoading}
+          preferredColumns={config.columns}
+          onView={(row) => setDetailRow(row)}
+          onEdit={(row) => setDrawer({ mode: 'edit', row })}
+          actions={config.actions?.map((action, actionIndex) => ({
+            label: action.label,
+            tone: action.tone,
+            onClick: (row) => actionMutation.mutate({ row, actionIndex }),
+          }))}
+        />
+      </section>
+      {drawer ? (
+        <ResourceDrawer
+          config={config}
+          mode={drawer.mode}
+          row={drawer.row}
+          saving={saveMutation.isPending}
+          onClose={() => setDrawer(undefined)}
+          onSubmit={(values) => saveMutation.mutate(values)}
+        />
+      ) : null}
+      {detailRow ? (
+        <DetailDrawer row={detailRow} title="AI 记录详情" onClose={() => setDetailRow(undefined)} />
+      ) : null}
     </Page>
   );
 }

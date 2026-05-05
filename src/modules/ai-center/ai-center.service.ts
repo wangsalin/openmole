@@ -27,7 +27,11 @@ import {
   ListAiCallLogsDto,
   ListAiModelsDto,
   ListAiProvidersDto,
+  ListAiRoutesDto,
   ListPromptsDto,
+  UpdateAiModelDto,
+  UpdateAiProviderDto,
+  UpdateAiRouteDto,
 } from './dto/ai.dto';
 import { OpenAiRequestDto } from './dto/open-ai.dto';
 
@@ -54,18 +58,20 @@ export class AiCenterService {
     return this.prisma.aiProvider.create({ data: body as never });
   }
 
-  async disableProvider(id: string) {
-    const provider = await this.prisma.aiProvider.findUnique({ where: { id } });
-    if (!provider) throw new NotFoundException('AI provider not found');
-    const activeModelCount = await this.prisma.aiModel.count({
-      where: {
-        providerId: id,
-        status: { in: ['active', 'inactive'] },
-      },
-    });
-    if (activeModelCount > 0) {
-      throw new BadRequestException('AI provider is still referenced by models');
+  async updateProvider(id: string, body: UpdateAiProviderDto) {
+    await this.ensureProvider(id);
+    if (body.status === 'disabled' || body.status === 'archived') {
+      await this.assertProviderCanBeDisabled(id);
     }
+    return this.prisma.aiProvider.update({
+      where: { id },
+      data: body as never,
+    });
+  }
+
+  async disableProvider(id: string) {
+    await this.ensureProvider(id);
+    await this.assertProviderCanBeDisabled(id);
     return this.prisma.aiProvider.update({
       where: { id },
       data: { status: 'disabled' },
@@ -87,14 +93,44 @@ export class AiCenterService {
   }
 
   async createModel(body: CreateAiModelDto) {
-    const provider = await this.prisma.aiProvider.findUnique({
-      where: { id: body.providerId },
-    });
-    if (!provider) throw new BadRequestException('AI provider not found');
+    const provider = await this.ensureProvider(body.providerId);
     if (provider.status !== 'active') {
       throw new BadRequestException('AI provider is not active');
     }
     return this.prisma.aiModel.create({ data: body as never });
+  }
+
+  async updateModel(id: string, body: UpdateAiModelDto) {
+    const model = await this.ensureModel(id);
+    if (body.providerId && body.providerId !== model.providerId) {
+      const provider = await this.ensureProvider(body.providerId);
+      if (provider.status !== 'active') {
+        throw new BadRequestException('AI provider is not active');
+      }
+    }
+    if (body.status === 'disabled' || body.status === 'archived') {
+      await this.assertModelCanBeDisabled(id);
+    }
+    return this.prisma.aiModel.update({
+      where: { id },
+      data: body as never,
+    });
+  }
+
+  routes(query: ListAiRoutesDto, tenantContext?: TenantContext) {
+    const { skip, take } = buildPagination(query);
+    const scope = tenantScopedQuery(query, tenantContext);
+    return this.prisma.aiModelRoute.findMany({
+      where: omitUndefined({
+        appId: scope.appId,
+        tenantId: scope.tenantId,
+        routeKey: query.routeKey,
+        status: query.status,
+      }),
+      skip,
+      take,
+      orderBy: { updatedAt: 'desc' },
+    });
   }
 
   async createRoute(body: CreateAiRouteDto, tenantContext?: TenantContext) {
@@ -133,8 +169,8 @@ export class AiCenterService {
             primaryModelId: body.primaryModelId,
             fallbackModelId: body.fallbackModelId,
             config: body.config as never,
-            status: 'active',
-          },
+            status: body.status ?? 'active',
+          } as never,
         });
       }
       return tx.aiModelRoute.create({
@@ -145,8 +181,57 @@ export class AiCenterService {
           primaryModelId: body.primaryModelId,
           fallbackModelId: body.fallbackModelId,
           config: body.config as never,
-        },
+          status: body.status ?? 'active',
+        } as never,
       });
+    });
+  }
+
+  async updateRoute(id: string, body: UpdateAiRouteDto, tenantContext?: TenantContext) {
+    const route = await this.prisma.aiModelRoute.findUnique({ where: { id } });
+    if (!route) throw new NotFoundException('AI route not found');
+    this.assertRouteAccess(route, tenantContext);
+
+    const primaryModelId = body.primaryModelId ?? route.primaryModelId;
+    const fallbackModelId =
+      body.fallbackModelId === undefined ? route.fallbackModelId : body.fallbackModelId;
+    const targetStatus = body.status ?? route.status;
+    if (targetStatus === 'active') {
+      const primaryModel = await this.ensureModel(primaryModelId);
+      if (primaryModel.status !== 'active') {
+        throw new BadRequestException('Primary AI model is not active');
+      }
+      if (fallbackModelId) {
+        const fallbackModel = await this.ensureModel(fallbackModelId);
+        if (fallbackModel.status !== 'active') {
+          throw new BadRequestException('Fallback AI model is not active');
+        }
+      }
+    }
+
+    const scope =
+      body.appId !== undefined || body.tenantId !== undefined
+        ? await this.resolveAdminScope(
+            {
+              appId: body.appId ?? route.appId ?? undefined,
+              tenantId: body.tenantId ?? route.tenantId ?? undefined,
+            },
+            tenantContext,
+          )
+        : { appId: route.appId, tenantId: route.tenantId };
+    await this.ensureAppTenant(scope.appId, scope.tenantId);
+
+    return this.prisma.aiModelRoute.update({
+      where: { id },
+      data: {
+        appId: scope.appId,
+        tenantId: scope.tenantId,
+        routeKey: body.routeKey,
+        primaryModelId,
+        fallbackModelId,
+        status: targetStatus,
+        config: body.config as never,
+      } as never,
     });
   }
 
@@ -490,6 +575,55 @@ export class AiCenterService {
     if (!tenant) throw new BadRequestException('Tenant not found');
     if (appId && tenant.appId !== appId) {
       throw new BadRequestException('Tenant belongs to another app');
+    }
+  }
+
+  private async ensureProvider(id: string) {
+    const provider = await this.prisma.aiProvider.findUnique({ where: { id } });
+    if (!provider) throw new BadRequestException('AI provider not found');
+    return provider;
+  }
+
+  private async ensureModel(id: string) {
+    const model = await this.prisma.aiModel.findUnique({ where: { id } });
+    if (!model) throw new BadRequestException('AI model not found');
+    return model;
+  }
+
+  private async assertProviderCanBeDisabled(providerId: string) {
+    const activeModelCount = await this.prisma.aiModel.count({
+      where: {
+        providerId,
+        status: { in: ['active', 'inactive'] },
+      },
+    });
+    if (activeModelCount > 0) {
+      throw new BadRequestException('AI provider is still referenced by models');
+    }
+  }
+
+  private async assertModelCanBeDisabled(modelId: string) {
+    const activeRouteCount = await this.prisma.aiModelRoute.count({
+      where: {
+        status: 'active',
+        OR: [
+          { primaryModelId: modelId },
+          { fallbackModelId: modelId },
+        ],
+      },
+    });
+    if (activeRouteCount > 0) {
+      throw new BadRequestException('AI model is still referenced by active routes');
+    }
+  }
+
+  private assertRouteAccess(
+    route: { appId: string | null; tenantId: string | null },
+    tenantContext?: TenantContext,
+  ) {
+    if (!tenantContext || tenantContext.isPlatform) return;
+    if (route.appId !== tenantContext.appId || route.tenantId !== tenantContext.tenantId) {
+      throw new ForbiddenException('AI route is outside tenant context');
     }
   }
 
