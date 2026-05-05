@@ -150,14 +150,38 @@ select {
 }
 
 .form-error,
-.error-banner {
+.error-banner,
+.success-banner {
   margin: 0;
-  border: 1px solid #efb8b8;
-  background: #fff4f2;
-  color: #9f2525;
   border-radius: 6px;
   padding: 10px 12px;
   font-size: 13px;
+}
+
+.form-error,
+.error-banner {
+  border: 1px solid #efb8b8;
+  background: #fff4f2;
+  color: #9f2525;
+}
+
+.success-banner {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  border: 1px solid #b7dccf;
+  background: #e7f4ef;
+  color: #19624c;
+  margin-bottom: 12px;
+}
+
+.success-banner button {
+  border: 0;
+  background: transparent;
+  color: #19624c;
+  cursor: pointer;
+  font-weight: 800;
 }
 
 .app-shell {
@@ -549,6 +573,36 @@ th {
   justify-content: flex-end;
   gap: 10px;
   margin-top: 8px;
+}
+
+.detail-list {
+  display: grid;
+  align-content: start;
+  gap: 0;
+  padding: 8px 18px 18px;
+  overflow: auto;
+}
+
+.detail-row {
+  display: grid;
+  grid-template-columns: 120px minmax(0, 1fr);
+  gap: 12px;
+  padding: 12px 0;
+  border-bottom: 1px solid #e2e8f0;
+}
+
+.detail-row span {
+  color: #677385;
+  font-size: 13px;
+  font-weight: 800;
+}
+
+.detail-row strong {
+  min-width: 0;
+  color: #18212f;
+  font-size: 13px;
+  font-weight: 600;
+  overflow-wrap: anywhere;
 }
 
 @media (max-width: 920px) {

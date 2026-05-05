@@ -133,8 +133,21 @@ const resourceConfigs: Record<string, ResourceConfig> = {
       { key: 'appKey', label: '应用标识', required: true, placeholder: 'lowercase_key' },
       { key: 'appType', label: '应用类型', required: true, placeholder: 'saas' },
       { key: 'domain', label: '域名' },
+      { key: 'defaultPlanId', label: '默认套餐 ID' },
       { key: 'status', label: '状态', type: 'select', options: statusOptions },
+      { key: 'configText', label: '应用配置 JSON', type: 'textarea', placeholder: '{"theme":"default"}' },
     ],
+    transform(values) {
+      return {
+        name: values.name,
+        appKey: values.appKey,
+        appType: values.appType,
+        domain: values.domain || undefined,
+        defaultPlanId: values.defaultPlanId || undefined,
+        status: values.status || undefined,
+        config: values.configText ? JSON.parse(values.configText) : undefined,
+      };
+    },
     actions: [
       {
         label: '禁用',
@@ -417,6 +430,8 @@ function ResourcePage({ title, endpoint }: { title: string; endpoint: string }) 
     mode: 'create' | 'edit';
     row?: Record<string, unknown>;
   }>();
+  const [detailRow, setDetailRow] = useState<Record<string, unknown>>();
+  const [toast, setToast] = useState<string>();
   const query = useQuery({
     queryKey: ['resource', endpoint, auth.activeContext, filters],
     queryFn: () => listResource<Record<string, unknown>>(endpoint, auth.activeContext, filters),
@@ -434,6 +449,7 @@ function ResourcePage({ title, endpoint }: { title: string; endpoint: string }) 
     },
     onSuccess: async () => {
       setDrawer(undefined);
+      setToast(drawer?.mode === 'edit' ? '已保存修改' : '已创建记录');
       await queryClient.invalidateQueries({ queryKey: ['resource', endpoint] });
     },
   });
@@ -441,9 +457,13 @@ function ResourcePage({ title, endpoint }: { title: string; endpoint: string }) 
     mutationFn: (input: { row: Record<string, unknown>; actionIndex: number }) => {
       const action = config?.actions?.[input.actionIndex];
       if (!action) throw new Error('Unsupported action');
+      if (!window.confirm(`确认执行“${action.label}”？`)) {
+        return Promise.resolve(undefined);
+      }
       return action.run(input.row, auth.activeContext);
     },
     onSuccess: async () => {
+      setToast('操作已完成');
       await queryClient.invalidateQueries({ queryKey: ['resource', endpoint] });
     },
   });
@@ -460,6 +480,14 @@ function ResourcePage({ title, endpoint }: { title: string; endpoint: string }) 
       }
     >
       <section className="panel">
+        {toast ? (
+          <div className="success-banner">
+            <span>{toast}</span>
+            <button type="button" onClick={() => setToast(undefined)}>
+              关闭
+            </button>
+          </div>
+        ) : null}
         {config?.filters?.length ? (
           <FilterBar fields={config.filters} values={filters} onChange={setFilters} />
         ) : null}
@@ -470,6 +498,7 @@ function ResourcePage({ title, endpoint }: { title: string; endpoint: string }) 
           rows={query.data ?? []}
           loading={query.isLoading}
           preferredColumns={config?.columns}
+          onView={(row) => setDetailRow(row)}
           onEdit={config ? (row) => setDrawer({ mode: 'edit', row }) : undefined}
           actions={config?.actions?.map((action, actionIndex) => ({
             label: action.label,
@@ -487,6 +516,9 @@ function ResourcePage({ title, endpoint }: { title: string; endpoint: string }) 
           onClose={() => setDrawer(undefined)}
           onSubmit={(values) => saveMutation.mutate(values)}
         />
+      ) : null}
+      {detailRow ? (
+        <DetailDrawer row={detailRow} title={`${title}详情`} onClose={() => setDetailRow(undefined)} />
       ) : null}
     </Page>
   );
@@ -553,12 +585,14 @@ function DataTable({
   rows,
   loading,
   preferredColumns,
+  onView,
   onEdit,
   actions,
 }: {
   rows: Record<string, unknown>[];
   loading: boolean;
   preferredColumns?: string[];
+  onView?: (row: Record<string, unknown>) => void;
   onEdit?: (row: Record<string, unknown>) => void;
   actions?: Array<{
     label: string;
@@ -584,7 +618,7 @@ function DataTable({
             {columns.map((column) => (
               <th key={column}>{columnLabels[column] ?? column}</th>
             ))}
-            {onEdit || actions?.length ? <th>操作</th> : null}
+            {onView || onEdit || actions?.length ? <th>操作</th> : null}
           </tr>
         </thead>
         <tbody>
@@ -593,9 +627,14 @@ function DataTable({
               {columns.map((column) => (
                 <td key={column}>{formatCell(row[column])}</td>
               ))}
-              {onEdit || actions?.length ? (
+              {onView || onEdit || actions?.length ? (
                 <td>
                   <div className="table-actions">
+                    {onView ? (
+                      <button type="button" onClick={() => onView(row)}>
+                        详情
+                      </button>
+                    ) : null}
                     {onEdit ? (
                       <button type="button" onClick={() => onEdit(row)}>
                         编辑
@@ -704,11 +743,48 @@ function ResourceDrawer({
   );
 }
 
+function DetailDrawer({
+  row,
+  title,
+  onClose,
+}: {
+  row: Record<string, unknown>;
+  title: string;
+  onClose(): void;
+}) {
+  const entries = Object.entries(row);
+  return (
+    <div className="drawer-backdrop">
+      <aside className="drawer-panel">
+        <div className="drawer-header">
+          <div>
+            <h2>{title}</h2>
+            <p>查看当前记录的完整字段</p>
+          </div>
+          <button className="icon-button" onClick={onClose} type="button">
+            ×
+          </button>
+        </div>
+        <div className="detail-list">
+          {entries.map(([key, value]) => (
+            <div className="detail-row" key={key}>
+              <span>{columnLabels[key] ?? key}</span>
+              <strong>{formatCell(value)}</strong>
+            </div>
+          ))}
+        </div>
+      </aside>
+    </div>
+  );
+}
+
 function initialValues(config: ResourceConfig, row?: Record<string, unknown>) {
   const values: Record<string, string> = {};
   for (const field of config.fields) {
     if (field.key === 'valueText') {
       values[field.key] = row?.value ? JSON.stringify(row.value, null, 2) : '';
+    } else if (field.key === 'configText') {
+      values[field.key] = row?.config ? JSON.stringify(row.config, null, 2) : '';
     } else {
       values[field.key] = row?.[field.key] === undefined ? '' : String(row[field.key] ?? '');
     }
@@ -719,6 +795,13 @@ function initialValues(config: ResourceConfig, row?: Record<string, unknown>) {
 function compactValues(values: Record<string, string>) {
   return Object.fromEntries(
     Object.entries(values).filter(([, value]) => value !== ''),
+  );
+}
+
+function statusLabel(value: string) {
+  return (
+    [...statusOptions, ...tenantStatusOptions].find((option) => option.value === value)
+      ?.label ?? value
   );
 }
 
@@ -745,6 +828,18 @@ function formatError(error: unknown) {
 
 function formatCell(value: unknown) {
   if (value === null || value === undefined) return '-';
+  if (typeof value === 'string' && [...statusOptions, ...tenantStatusOptions].some((option) => option.value === value)) {
+    return statusLabel(value);
+  }
+  if (typeof value === 'string' && value.includes('T') && !Number.isNaN(Date.parse(value))) {
+    return new Intl.DateTimeFormat('zh-CN', {
+      year: 'numeric',
+      month: '2-digit',
+      day: '2-digit',
+      hour: '2-digit',
+      minute: '2-digit',
+    }).format(new Date(value));
+  }
   if (typeof value === 'object') return JSON.stringify(value);
   return String(value);
 }
